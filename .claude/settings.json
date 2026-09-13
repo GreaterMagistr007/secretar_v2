@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Edit(./**)",
+      "Edit(./.*/**)",
+      "Write(./**)",
+      "Write(./.*/**)",
+      "NotebookEdit(./**)",
+      "NotebookEdit(./.*/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // empty'); a='{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Правка файлов внутри проекта разрешена настройками проекта\"}}'; case \"$f\" in */.claude/settings*.json|*/.claude/hooks/*|*/.env|*/.env.*|*/.ssh/*|*id_rsa*|*/credentials*|*/.aws/*|*/.npmrc|*/.claude.json) exit 0;; esac; case \"$f\" in */memory/*) printf '%s' \"$a\"; exit 0;; esac; d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; case \"$d\" in /|\"\") exit 0;; esac; case \"$f\" in \"$d\"/*) printf '%s' \"$a\";; esac",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "c=$(jq -r '.tool_input.command // empty'); case \"$c\" in *\".claude/settings\"*|*\".claude/hooks\"*|*\".claude/agents\"*|*\".claude/skills\"*|*\".claude/commands\"*|*\".env\"*|*\".ssh\"*|*id_rsa*|*credentials*|*\".aws\"*|*\".npmrc\"*|*\".claude.json\"*) exit 0;; esac; case \"$c\" in *\"rm \"*|*\"shred \"*|*\"truncate \"*|*\"mv \"*|*\"git reset --hard\"*|*\"--delete\"*) exit 0;; esac; printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Команда внутри проекта разрешена настройками проекта\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "i=$(cat); f=$(printf '%s' \"$i\" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty'); c=$(printf '%s' \"$i\" | jq -r '.tool_input.command // empty'); a='{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Работа с файлами проекта разрешена настройками проекта\"}}'; case \"$f$c\" in *\".claude/settings\"*|*\".claude/hooks\"*|*\".env\"*|*\".ssh\"*|*id_rsa*|*credentials*|*\".aws\"*|*\".npmrc\"*|*\".claude.json\"*) exit 0;; esac; case \"$c\" in *\"rm \"*|*\"shred \"*|*\"truncate \"*|*\"git reset --hard\"*|*\"--delete\"*) exit 0;; esac; case \"$f\" in */memory/*) printf '%s' \"$a\"; exit 0;; esac; d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; case \"$d\" in /|\"\") exit 0;; esac; case \"$f\" in \"$d\"/*) printf '%s' \"$a\"; exit 0;; esac; case \"$c\" in ?*) printf '%s' \"$a\";; esac",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

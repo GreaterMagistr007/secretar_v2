@@ -15,6 +15,7 @@ type: project
 
 ## Файлы памяти
 - [new-session-prompt.md](new-session-prompt.md) — готовый промпт для следующей сессии. Перезаписывается целиком в конце каждой сессии.
+- [feedback_tooling.md](feedback_tooling.md) — грабли самого Claude Code и подтверждённые обходы: блокировка записи в `.claude/settings.json` из режима auto mode, кэширование хуков на момент старта сессии.
 
 ## Отчёты агентов
 Кладутся сюда же, имя не начинается с `report`: `progress_*.md`, `findings_*.md`, `notes_*.md`, `audit_*.md`. Запись — дописыванием через Bash. Правила — [../docs/rules_work.md](../docs/rules_work.md).
