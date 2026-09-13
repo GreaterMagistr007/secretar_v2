@@ -149,18 +149,10 @@
 
 <section class="screen">
   <header class="header">
+    <!-- Значка-стрелки у заголовка нет намеренно: по указанию владельца кликабельность
+         надписи очевидна и без него. -->
     <button type="button" class="heading" onclick={openPicker} aria-haspopup="dialog">
       <span class="heading-text">{heading}</span>
-      <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path
-          d="M7 10l5 5 5-5"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
     </button>
   </header>
 
@@ -292,13 +284,6 @@
   .heading:hover,
   .heading:focus-visible {
     border-color: var(--color-border);
-  }
-
-  .chevron {
-    width: 20px;
-    height: 20px;
-    flex: none;
-    color: var(--color-text-muted);
   }
 
   .grid {
