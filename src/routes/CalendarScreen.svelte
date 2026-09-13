@@ -183,10 +183,12 @@
     </div>
   </div>
 
+  <!-- Метки в ячейках показывают приоритет задачи (требование Т-24). Цвета те же, что были
+       у прежних категорий: расцветка сохранена, изменился только смысл подписей. -->
   <p class="legend">
-    <span class="legend-item"><span class="mark mark--a"></span>Работа</span>
-    <span class="legend-item"><span class="mark mark--b"></span>Дом</span>
-    <span class="legend-item"><span class="mark mark--c"></span>Личное</span>
+    <span class="legend-item"><span class="mark mark--a"></span>Средний</span>
+    <span class="legend-item"><span class="mark mark--b"></span>Низкий</span>
+    <span class="legend-item"><span class="mark mark--c"></span>Высокий</span>
   </p>
 </section>
 
