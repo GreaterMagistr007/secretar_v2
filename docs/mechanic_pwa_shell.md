@@ -22,7 +22,7 @@ type: project
 
 ## Views
 - `index.html` — `lang="ru"`, `<title>Секретарь</title>`, `viewport-fit=cover`, два `theme-color` (для светлой и тёмной схемы), `apple-touch-icon`, `apple-mobile-web-app-title` = «Секретарь».
-- `src/App.svelte` — единственный экран: заголовок «Секретарь» по центру. Отступы через `calc(var(--space-lg) + env(safe-area-inset-*))`, высота `100svh`, `overflow-wrap: anywhere`.
+- `src/App.svelte` — единственный экран: заголовок «Секретарь» по центру и под ним ссылка «Демо шаблонов календаря» на галерею вариантов (позиция каталога 22). Ссылка строится от `import.meta.env.BASE_URL`, а не от корня домена: на GitHub Pages приложение живёт в подкаталоге `/secretar_v2/`. Отступы через `calc(var(--space-lg) + env(safe-area-inset-*))`, высота `100svh`, `overflow-wrap: anywhere`.
 - `src/app.css` — глобальные стили и тема. Палитра, типографика и отступы заданы CSS-переменными на `:root`; тёмная тема через `@media (prefers-color-scheme: dark)` переопределяет только цвета. `overflow-x: hidden` на `html` и `body`. Размер заголовка `clamp(2rem, 12vw, 3rem)` — подгоняется под ширину экрана.
 - `src/main.ts` — монтирование Svelte 5 через `mount()`; при отсутствии `#app` бросается ошибка, молчаливого падения нет.
 
