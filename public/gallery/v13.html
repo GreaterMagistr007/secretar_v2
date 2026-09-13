@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>13. Янтарь / кнопка добавления в углу</title>
+<style>
+  :root{
+    --bg:#fffaf0; --card:#fff; --ink:#3a2a10; --muted:#9a8464;
+    --amber:#e0930c; --amber-d:#a86505; --amber-l:#fde8c2; --line:#f0e2c9;
+    --green:#5f8f4e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  .phone{max-width:420px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:96px}
+
+  /* шапка по центру */
+  .hdr{padding:22px 16px 8px;text-align:center}
+  .hdr .month-btn{
+    display:inline-flex;flex-direction:column;align-items:center;gap:2px;
+    background:none;border:0;padding:6px 18px;border-radius:16px;font:inherit;color:inherit;cursor:pointer;
+  }
+  .hdr .month-btn:active{background:var(--amber-l)}
+  .hdr .m{font-size:24px;font-weight:800;letter-spacing:-.3px}
+  .hdr .y{font-size:12px;font-weight:700;letter-spacing:3px;color:var(--amber-d);text-transform:uppercase}
+  .hdr .hint{margin-top:6px;font-size:11px;color:var(--muted)}
+
+  .card{margin:12px;background:var(--card);border-radius:22px;padding:14px 10px 16px;box-shadow:0 10px 26px rgba(168,101,5,.09)}
+  .wd{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px}
+  .wd span{text-align:center;font-size:11px;font-weight:700;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cell{
+    aspect-ratio:1;border:0;background:transparent;border-radius:14px;font:inherit;color:var(--ink);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;
+  }
+  .cell .n{font-size:15px;font-weight:600;line-height:1}
+  .cell.out{visibility:hidden;pointer-events:none}
+  .cell.has{background:var(--amber-l)}
+  .cell.today{background:var(--amber);color:#fff;box-shadow:0 5px 12px rgba(224,147,12,.4)}
+  .cell.today .n{font-weight:800}
+  .cell.sel{outline:2px solid var(--amber-d);outline-offset:-2px}
+  .cnt{font-size:9px;font-weight:800;color:var(--amber-d);line-height:1}
+  .cell.today .cnt{color:#fff8e8}
+  .cell .done{position:absolute;top:6px;right:7px;width:5px;height:5px;border-radius:50%;background:var(--green)}
+
+  .strip{margin:0 16px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border:1px dashed var(--line);border-radius:16px}
+  .strip .big{font-size:26px;font-weight:800;color:var(--amber-d);line-height:1}
+  .strip .txt{font-size:12px;color:var(--muted);line-height:1.35}
+  .strip .txt b{display:block;font-size:13px;color:var(--ink)}
+
+  /* круглая кнопка добавления */
+  .fab{
+    position:fixed;right:calc(50% - 210px + 18px);bottom:22px;width:60px;height:60px;border-radius:50%;
+    border:0;background:var(--amber);color:#fff;font-size:30px;line-height:1;cursor:pointer;
+    box-shadow:0 10px 24px rgba(224,147,12,.5);display:flex;align-items:center;justify-content:center;z-index:10;
+  }
+  @media(max-width:456px){ .fab{right:18px} }
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:96px;max-width:300px;
+    background:var(--ink);color:#fff6e4;font-size:13px;padding:10px 16px;border-radius:12px;
+    opacity:0;transition:opacity .2s;pointer-events:none;z-index:11;text-align:center;
+  }
+  .toast.show{opacity:1}
+
+  .overlay{position:fixed;inset:0;background:rgba(58,42,16,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:30}
+  .overlay.open{display:flex}
+  .dialog{width:100%;max-width:360px;background:#fff;border-radius:24px;padding:18px;box-shadow:0 24px 60px rgba(58,42,16,.3)}
+  .dialog h3{margin:0 0 14px;font-size:14px;text-align:center;color:var(--muted);font-weight:700;letter-spacing:.5px}
+  .year{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .year b{font-size:22px;font-weight:800;color:var(--amber-d)}
+  .nav{width:40px;height:40px;border-radius:50%;border:0;background:var(--amber-l);color:var(--amber-d);font-size:18px;font-weight:700;cursor:pointer}
+  .months{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .months button{
+    padding:14px 2px;border-radius:14px;border:0;background:#fdf6e8;font:inherit;font-size:13px;
+    font-weight:700;color:var(--ink);cursor:pointer;
+  }
+  .months button.cur{background:var(--amber);color:#fff}
+  .months button.now{box-shadow:inset 0 0 0 2px var(--amber)}
+  .cancel{width:100%;margin-top:14px;padding:13px;border-radius:14px;border:0;background:#f6f0e4;color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header class="hdr">
+    <button class="month-btn" id="monthBtn" aria-haspopup="dialog">
+      <span class="m" id="mName">—</span>
+      <span class="y" id="mYear"></span>
+    </button>
+    <div class="hint">нажмите на месяц, чтобы перейти к другому</div>
+  </header>
+
+  <div class="card">
+    <div class="wd" id="wd"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="strip">
+    <div class="big" id="sumCount">0</div>
+    <div class="txt"><b id="sumTitle">задач в этом месяце</b><span id="sumSub"></span></div>
+  </div>
+</div>
+
+<button class="fab" id="fab" aria-label="Добавить задачу">+</button>
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="dialog">
+    <h3>ПЕРЕЙТИ К МЕСЯЦУ</h3>
+    <div class="year">
+      <button class="nav" id="prevYear" aria-label="Предыдущий год">‹</button>
+      <b id="pickYear">2026</b>
+      <button class="nav" id="nextYear" aria-label="Следующий год">›</button>
+    </div>
+    <div class="months" id="months"></div>
+    <button class="cancel" id="cancelBtn">Отмена</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var MONTHS=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  var SHORT=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  var GEN=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  var WD=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+
+  function hash(y,m,d,salt){
+    var x=((y*12+m)*32+d)*29+(salt||0);
+    x=(x*2654435761)%4294967296; x=x^(x>>>8);
+    return Math.abs(x)%100003;
+  }
+  function count(y,m,d){ var h=hash(y,m,d,2); return (h%100<38)?0:1+(h%5); }
+  function allDone(y,m,d){ return count(y,m,d)>0 && hash(y,m,d,6)%5===0; }
+
+  var today=new Date();
+  var todayKey=today.getFullYear()+"-"+today.getMonth()+"-"+today.getDate();
+  var viewY=today.getFullYear(), viewM=today.getMonth();
+  var selKey=todayKey, pickYear=viewY;
+
+  var $=function(id){return document.getElementById(id);};
+  var grid=$("grid"), overlay=$("overlay"), toast=$("toast"), toastTimer=0;
+
+  (function(){
+    var h="";
+    for(var i=0;i<7;i++) h+="<span>"+WD[i]+"</span>";
+    $("wd").innerHTML=h;
+  })();
+
+  function showToast(text){
+    toast.textContent=text; toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ toast.classList.remove("show"); },1800);
+  }
+
+  function render(){
+    $("mName").textContent=MONTHS[viewM];
+    $("mYear").textContent=viewY;
+
+    var offset=(new Date(viewY,viewM,1).getDay()+6)%7;
+    var days=new Date(viewY,viewM+1,0).getDate();
+    var cells=Math.ceil((offset+days)/7)*7;
+
+    grid.innerHTML="";
+    var total=0, busiest=0, busiestDay=1;
+    for(var i=0;i<cells;i++){
+      var n=i-offset+1;
+      var b=document.createElement("button");
+      b.type="button";
+      if(n<1||n>days){ b.className="cell out"; b.disabled=true; grid.appendChild(b); continue; }
+      var c=count(viewY,viewM,n);
+      total+=c;
+      if(c>busiest){ busiest=c; busiestDay=n; }
+      var key=viewY+"-"+viewM+"-"+n;
+      b.className="cell"+(c?" has":"")+(key===todayKey?" today":"")+(key===selKey?" sel":"");
+      b.innerHTML='<span class="n">'+n+'</span>'+(c?'<span class="cnt">'+c+'</span>':'<span class="cnt">&nbsp;</span>')
+        +(allDone(viewY,viewM,n)?'<span class="done"></span>':'');
+      b.dataset.d=n;
+      grid.appendChild(b);
+    }
+    $("sumCount").textContent=total;
+    $("sumTitle").textContent="задач в месяце "+MONTHS[viewM].toLowerCase();
+    $("sumSub").textContent=busiest?("самый плотный день — "+busiestDay+" "+GEN[viewM]+", "+busiest+" задач"):"свободный месяц";
+  }
+
+  grid.addEventListener("click",function(e){
+    var b=e.target.closest(".cell");
+    if(!b||b.disabled) return;
+    selKey=viewY+"-"+viewM+"-"+b.dataset.d;
+    render();
+    showToast(b.dataset.d+" "+GEN[viewM]+": "+count(viewY,viewM,+b.dataset.d)+" задач(и)");
+  });
+
+  $("fab").addEventListener("click",function(){
+    var d=selKey.split("-");
+    showToast("Новая задача на "+d[2]+" "+GEN[+d[1]]);
+  });
+
+  function renderMonths(){
+    $("pickYear").textContent=pickYear;
+    var h="";
+    for(var i=0;i<12;i++){
+      var cls="";
+      if(pickYear===viewY&&i===viewM) cls="cur";
+      else if(pickYear===today.getFullYear()&&i===today.getMonth()) cls="now";
+      h+='<button type="button" class="'+cls+'" data-m="'+i+'">'+SHORT[i]+'</button>';
+    }
+    $("months").innerHTML=h;
+  }
+  function open(){ pickYear=viewY; renderMonths(); overlay.classList.add("open"); }
+  function close(){ overlay.classList.remove("open"); }
+
+  $("monthBtn").addEventListener("click",open);
+  $("prevYear").addEventListener("click",function(){pickYear--;renderMonths();});
+  $("nextYear").addEventListener("click",function(){pickYear++;renderMonths();});
+  $("cancelBtn").addEventListener("click",close);
+  $("months").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-m]");
+    if(!b) return;
+    viewY=pickYear; viewM=+b.dataset.m;
+    selKey=(viewY===today.getFullYear()&&viewM===today.getMonth())?todayKey:(viewY+"-"+viewM+"-1");
+    close(); render();
+  });
+  overlay.addEventListener("click",function(e){ if(e.target===overlay) close(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

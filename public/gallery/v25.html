@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>25. Изумруд / месяц вертикально сбоку</title>
+<style>
+  /* Вариант 25 — заголовок месяца вертикально по левому краю, сетка занимает остальное */
+  :root{
+    --bg:#f2f7f4; --panel:#0f3d31; --panel2:#14513f; --ink:#0d211c; --dim:#6d8a80;
+    --accent:#12a06f; --accentSoft:#d7f0e4; --card:#fff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);overflow-x:hidden;
+    font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  .wrap{max-width:430px;margin:0 auto;min-height:100vh;display:flex;gap:0}
+  /* Вертикальная колонка с месяцем */
+  .side{flex:none;width:74px;background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:0;padding:18px 0;cursor:pointer;color:#eafaf2;display:flex;flex-direction:column;
+    align-items:center;justify-content:space-between;font-family:inherit}
+  .side .vm{writing-mode:vertical-rl;transform:rotate(180deg);font-size:30px;font-weight:600;letter-spacing:.04em;
+    flex:1;display:flex;align-items:center;justify-content:center}
+  .side .vy{writing-mode:vertical-rl;transform:rotate(180deg);font-size:13px;letter-spacing:.32em;color:#7fd9b6}
+  .side .tag{font-size:10px;background:rgba(255,255,255,.14);border-radius:999px;padding:6px 8px;
+    writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.1em;margin-top:12px}
+  .main{flex:1;min-width:0;padding:18px 14px 34px}
+  .topline{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .topline .lbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .tbtn{border:0;background:var(--accentSoft);color:#0a6b48;border-radius:999px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+  .wd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px}
+  .wd div{text-align:center;font-size:10px;font-weight:600;color:var(--dim)}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  .cell{aspect-ratio:1;border-radius:9px;background:var(--card);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:13px;gap:2px;box-shadow:0 1px 1px rgba(15,61,49,.06)}
+  .cell.out{background:transparent;color:#bcccc6;box-shadow:none}
+  .cell.today{background:var(--accent);color:#fff;font-weight:700;box-shadow:0 3px 10px rgba(18,160,111,.4)}
+  .cell.lvl1{border-bottom:3px solid #9fe0c4}
+  .cell.lvl2{border-bottom:3px solid #35bd8a}
+  .cell.lvl3{border-bottom:3px solid #0a6b48}
+  .cell.today.lvl1,.cell.today.lvl2,.cell.today.lvl3{border-bottom-color:#fff}
+  .stats{margin-top:16px;background:var(--card);border-radius:14px;padding:14px;display:flex;justify-content:space-between}
+  .stat .v{font-size:20px;font-weight:700;color:var(--panel)}
+  .stat .k{font-size:11px;color:var(--dim);margin-top:2px}
+  /* Модалка */
+  .ovl{position:fixed;inset:0;background:rgba(13,33,28,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+  .ovl.on{display:flex}
+  .dlg{width:100%;max-width:390px;background:var(--card);border-radius:18px;overflow:hidden}
+  .dlg .top{background:var(--panel);color:#eafaf2;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  .dlg .top b{font-size:19px;letter-spacing:.08em;font-weight:600}
+  .dlg .top button{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.25);
+    background:none;color:#eafaf2;font-size:17px;cursor:pointer}
+  .mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:14px}
+  .mgrid button{border:1px solid #e2ece8;border-radius:10px;background:none;padding:12px 2px;font-size:12px;
+    color:var(--ink);cursor:pointer;font-family:inherit}
+  .mgrid button.cur{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  .cancel{display:block;width:calc(100% - 28px);margin:0 14px 14px;padding:12px;border-radius:10px;
+    border:1px solid #e2ece8;background:none;color:var(--dim);font-size:13px;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="side" id="head" aria-haspopup="dialog">
+    <span class="vy" id="hYear"></span>
+    <span class="vm" id="hMonth"></span>
+    <span class="tag">выбрать</span>
+  </button>
+  <div class="main">
+    <div class="topline">
+      <span class="lbl">Календарь дел</span>
+      <button class="tbtn" id="tbtn">Сегодня</button>
+    </div>
+    <div class="wd" id="wd"></div>
+    <div class="grid" id="grid"></div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="s1"></div><div class="k">задач</div></div>
+      <div class="stat"><div class="v" id="s2"></div><div class="k">занятых дней</div></div>
+      <div class="stat"><div class="v" id="s3"></div><div class="k">свободных</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="ovl" id="ovl" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="dlg">
+    <div class="top">
+      <button id="prevY" aria-label="Предыдущий год">‹</button>
+      <b id="yLbl"></b>
+      <button id="nextY" aria-label="Следующий год">›</button>
+    </div>
+    <div class="mgrid" id="mgrid"></div>
+    <button class="cancel" id="cancel">Отмена</button>
+  </div>
+</div>
+
+<script>
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MSHORT=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const WD=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const today=new Date();
+  let vy=today.getFullYear(), vm=today.getMonth(), pickY=vy;
+
+  function rnd(y,m,d){const x=Math.sin((y*12+m)*29.4+d*3.61)*10000;return x-Math.floor(x);}
+  function tasks(y,m,d){const r=rnd(y,m,d);return r<.42?0:1+Math.floor(r*10)%3;}
+
+  document.getElementById('wd').innerHTML=WD.map(d=>'<div>'+d+'</div>').join('');
+
+  function draw(){
+    document.getElementById('hMonth').textContent=MONTHS[vm];
+    document.getElementById('hYear').textContent=vy;
+    const off=(new Date(vy,vm,1).getDay()+6)%7;
+    const dim=new Date(vy,vm+1,0).getDate(), pdim=new Date(vy,vm,0).getDate();
+    let html='',total=0,busy=0;
+    for(let i=off-1;i>=0;i--) html+='<div class="cell out">'+(pdim-i)+'</div>';
+    for(let d=1;d<=dim;d++){
+      const t=tasks(vy,vm,d); total+=t; if(t)busy++;
+      const isT=(d===today.getDate()&&vm===today.getMonth()&&vy===today.getFullYear());
+      html+='<div class="cell'+(isT?' today':'')+(t?' lvl'+t:'')+'">'+d+'</div>';
+    }
+    const rest=(7-((off+dim)%7))%7;
+    for(let d=1;d<=rest;d++) html+='<div class="cell out">'+d+'</div>';
+    document.getElementById('grid').innerHTML=html;
+    document.getElementById('s1').textContent=total;
+    document.getElementById('s2').textContent=busy;
+    document.getElementById('s3').textContent=dim-busy;
+  }
+
+  function drawMonths(){
+    document.getElementById('yLbl').textContent=pickY;
+    document.getElementById('mgrid').innerHTML=MSHORT.map((m,i)=>
+      '<button data-m="'+i+'" class="'+(i===vm&&pickY===vy?'cur':'')+'">'+m+'</button>').join('');
+  }
+
+  const ovl=document.getElementById('ovl');
+  const open=()=>{pickY=vy;drawMonths();ovl.classList.add('on');};
+  const close=()=>ovl.classList.remove('on');
+
+  document.getElementById('head').addEventListener('click',open);
+  document.getElementById('cancel').addEventListener('click',close);
+  ovl.addEventListener('click',e=>{if(e.target===ovl)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ovl.classList.contains('on'))close();});
+  document.getElementById('prevY').addEventListener('click',()=>{pickY--;drawMonths();});
+  document.getElementById('nextY').addEventListener('click',()=>{pickY++;drawMonths();});
+  document.getElementById('mgrid').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-m]');if(!b)return;
+    vm=+b.dataset.m;vy=pickY;draw();close();
+  });
+  document.getElementById('tbtn').addEventListener('click',()=>{vy=today.getFullYear();vm=today.getMonth();draw();});
+
+  draw();
+</script>
+</body>
+</html>

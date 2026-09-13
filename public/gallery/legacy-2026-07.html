@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Календарь — 20 направлений</title>
+</head>
+<body>
+<style>
+	/* ── Токены обёртки галереи (не путать с палитрами карточек) ── */
+	:root {
+		--bg: #f6f5f2;
+		--surface: #ffffff;
+		--ink: #1b1b1f;
+		--muted: #6b6b73;
+		--faint: #9a9aa4;
+		--hair: #e4e1da;
+		--accent: #4f46e5;
+		--shadow: 0 1px 2px rgba(20, 20, 30, 0.04), 0 8px 24px -12px rgba(20, 20, 30, 0.18);
+		--sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+		--serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+		--mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--bg: #101014;
+			--surface: #17171d;
+			--ink: #ececf0;
+			--muted: #9a9aa4;
+			--faint: #6b6b76;
+			--hair: #29293200;
+			--hair: #292932;
+			--accent: #8b8cff;
+			--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+		}
+	}
+	:root[data-theme="light"] {
+		--bg: #f6f5f2; --surface: #ffffff; --ink: #1b1b1f; --muted: #6b6b73;
+		--faint: #9a9aa4; --hair: #e4e1da; --accent: #4f46e5;
+		--shadow: 0 1px 2px rgba(20, 20, 30, 0.04), 0 8px 24px -12px rgba(20, 20, 30, 0.18);
+	}
+	:root[data-theme="dark"] {
+		--bg: #101014; --surface: #17171d; --ink: #ececf0; --muted: #9a9aa4;
+		--faint: #6b6b76; --hair: #292932; --accent: #8b8cff;
+		--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+	}
+
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--ink);
+		font-family: var(--sans);
+		-webkit-font-smoothing: antialiased;
+		line-height: 1.5;
+	}
+
+	.wrap { max-width: 1360px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 4rem) clamp(1rem, 4vw, 3rem); }
+
+	/* ── Шапка ── */
+	.masthead { border-bottom: 1px solid var(--hair); padding-bottom: 1.75rem; margin-bottom: 2.25rem; }
+	.eyebrow {
+		font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;
+		color: var(--muted); font-weight: 600; margin: 0 0 0.9rem;
+	}
+	.eyebrow b { color: var(--accent); font-weight: 700; }
+	.masthead h1 {
+		font-family: var(--sans); font-weight: 800; letter-spacing: -0.03em;
+		font-size: clamp(2rem, 5.5vw, 3.6rem); line-height: 1.02; margin: 0 0 0.9rem;
+		text-wrap: balance; max-width: 20ch;
+	}
+	.lede { font-size: clamp(1rem, 1.6vw, 1.15rem); color: var(--muted); max-width: 62ch; margin: 0; }
+	.lede b { color: var(--ink); font-weight: 600; }
+
+	/* Лента акцентов — индекс из 20 цветов */
+	.ribbon { display: flex; height: 8px; margin: 1.75rem 0 0; border-radius: 6px; overflow: hidden; }
+	.ribbon span { flex: 1 1 0; }
+
+	.legend {
+		display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; margin-top: 1.4rem;
+		font-size: 0.82rem; color: var(--muted);
+	}
+	.legend .lg { display: inline-flex; align-items: center; gap: 0.45rem; }
+	.legend .sw { width: 1.6rem; height: 0.85rem; border-radius: 3px; display: inline-block; }
+	.legend .sw-ev { background: #3b5bdb; }
+	.legend .sw-tk {
+		background: transparent; border: 1.5px solid #6b6b73; position: relative;
+	}
+	.legend .box {
+		width: 0.85rem; height: 0.85rem; border: 1.5px solid currentColor; border-radius: 3px;
+		display: inline-block;
+	}
+
+	/* ── Сетка карточек ── */
+	.gallery {
+		display: grid; gap: clamp(1.1rem, 2vw, 1.75rem);
+		grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+		margin-top: 2.5rem;
+	}
+	@media (max-width: 420px) { .gallery { grid-template-columns: 1fr; } }
+
+	.card {
+		background: var(--surface);
+		border: 1px solid var(--hair);
+		border-radius: 16px;
+		overflow: hidden;
+		box-shadow: var(--shadow);
+		display: flex; flex-direction: column;
+		transition: transform 0.18s ease, box-shadow 0.18s ease;
+	}
+	.card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(20,20,30,0.06), 0 22px 48px -18px rgba(20,20,30,0.34); }
+	@media (prefers-reduced-motion: reduce) { .card, .card:hover { transition: none; transform: none; } }
+
+	.meta { display: flex; align-items: center; gap: 0.85rem; padding: 0.9rem 1.1rem; border-top: 1px solid var(--hair); }
+	.meta__n { font-family: var(--mono); font-size: 0.8rem; color: var(--faint); font-weight: 600; letter-spacing: 0.02em; }
+	.meta__body { flex: 1 1 auto; min-width: 0; }
+	.meta__body h3 { margin: 0; font-size: 0.98rem; font-weight: 700; letter-spacing: -0.01em; }
+	.meta__body p { margin: 0.1rem 0 0; font-size: 0.78rem; color: var(--muted); }
+	.meta__sw { display: flex; gap: 0.28rem; }
+	.meta__sw i { width: 0.85rem; height: 0.85rem; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+
+	/* ══════════════════════════════════════════════════════════
+	   .cal — компонент-превью, управляется CSS-переменными карточки
+	   ══════════════════════════════════════════════════════════ */
+	.cal {
+		--radius: 8px; --chip-radius: 4px;
+		--c-bg: #fff; --c-surface: #fff; --c-ink: #1b1b1f; --c-muted: #6b6b73;
+		--c-hair: #e5e5e5; --c-accent: #1a73e8; --c-accent-ink: #fff;
+		--c-today-bg: #1a73e8; --c-today-ink: #fff;
+		--c-event-bg: #1a73e8; --c-event-ink: #fff;
+		--c-task-accent: #d9a400; --c-weekend: #6b6b73;
+		--c-btn: transparent; --c-btn-ink: #1b1b1f; --c-btn-bd: #dcdce2;
+		--head-bg: transparent; --head-ink: inherit;
+		font-family: var(--sans);
+		background: var(--c-bg); color: var(--c-ink);
+		padding: 0.85rem 0.9rem 1rem; position: relative;
+		display: flex; flex-direction: column; gap: 0.6rem;
+		min-height: 320px;
+	}
+	.cal.f-serif { font-family: var(--serif); }
+	.cal.f-mono { font-family: var(--mono); }
+
+	/* Элементы хедера */
+	.cal__title { font-weight: 800; letter-spacing: -0.02em; font-size: 1.02rem; line-height: 1.1; margin: 0; color: var(--c-ink); }
+	.cal__kick { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--c-muted); font-weight: 700; }
+	.cal__range { font-size: 0.82rem; color: var(--c-muted); font-weight: 600; }
+
+	.btn {
+		font: inherit; font-size: 0.72rem; font-weight: 600; line-height: 1;
+		border: 1px solid var(--c-btn-bd); background: var(--c-btn); color: var(--c-btn-ink);
+		border-radius: 999px; padding: 0.38rem 0.7rem; cursor: pointer; white-space: nowrap;
+	}
+	.btn--icon { padding: 0.38rem; width: 1.9rem; height: 1.9rem; display: inline-grid; place-items: center; border-radius: 50%; font-size: 0.9rem; }
+	.btn--primary { background: var(--c-accent); color: var(--c-accent-ink); border-color: transparent; }
+	.btn--ghost { background: transparent; border-color: transparent; color: var(--c-muted); }
+	.cal:not([data-layout]) .btn { }
+
+	.seg { display: inline-flex; border: 1px solid var(--c-btn-bd); border-radius: 999px; overflow: hidden; }
+	.seg .btn { border: 0; border-radius: 0; padding: 0.36rem 0.62rem; }
+	.seg .btn[aria-pressed="true"] { background: var(--c-accent); color: var(--c-accent-ink); }
+	.seg--square { border-radius: 8px; }
+	.seg--square .btn { border-radius: 0; }
+
+	.tabs { display: inline-flex; gap: 0.75rem; }
+	.tabs .tb { font: inherit; font-size: 0.74rem; font-weight: 600; background: none; border: 0; padding: 0.2rem 0; color: var(--c-muted); cursor: pointer; border-bottom: 2px solid transparent; }
+	.tabs .tb[aria-pressed="true"] { color: var(--c-ink); border-bottom-color: var(--c-accent); }
+
+	.nav { display: inline-flex; align-items: center; gap: 0.2rem; }
+	.nav .btn { padding: 0.3rem; width: 1.65rem; height: 1.65rem; display: inline-grid; place-items: center; border-radius: 50%; }
+
+	.sel {
+		font: inherit; font-size: 0.72rem; font-weight: 600; color: var(--c-btn-ink);
+		border: 1px solid var(--c-btn-bd); background: var(--c-btn); border-radius: 8px;
+		padding: 0.36rem 1.5rem 0.36rem 0.6rem; cursor: pointer; appearance: none;
+		background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+		background-position: right 0.62rem center, right 0.42rem center;
+		background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+	}
+
+	/* Раскладки хедера */
+	.cal__head { display: flex; }
+	.cal[data-layout="topbar"] .cal__head { flex-wrap: wrap; align-items: center; gap: 0.4rem 0.5rem; }
+	.cal[data-layout="topbar"] .cal__head .grow { flex: 1 1 auto; }
+
+	.cal[data-layout="split"] .cal__head { flex-direction: column; gap: 0.55rem; }
+	.cal[data-layout="split"] .row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: wrap; }
+
+	.cal[data-layout="center"] .cal__head { flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; }
+	.cal[data-layout="center"] .row { display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
+	.cal[data-layout="center"] .cal__cornersettings { position: absolute; top: 0.7rem; right: 0.7rem; }
+
+	.cal[data-layout="fab"] .cal__head { align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: wrap; }
+	.cal[data-layout="fab"] .cal__fab {
+		position: absolute; right: 0.9rem; bottom: 0.9rem; width: 2.8rem; height: 2.8rem; border-radius: 50%;
+		background: var(--c-accent); color: var(--c-accent-ink); border: 0; font-size: 1.4rem; cursor: pointer;
+		box-shadow: 0 6px 16px -4px rgba(0,0,0,0.35); display: grid; place-items: center; z-index: 2;
+	}
+
+	.cal[data-layout="sidebar"] { flex-direction: row; gap: 0.75rem; }
+	.cal[data-layout="sidebar"] .rail {
+		display: flex; flex-direction: column; gap: 0.4rem; align-items: stretch;
+		padding-right: 0.75rem; border-right: 1px solid var(--c-hair); flex: 0 0 auto;
+	}
+	.cal[data-layout="sidebar"] .rail .btn { width: 100%; }
+	.cal[data-layout="sidebar"] .main { flex: 1 1 auto; display: flex; flex-direction: column; gap: 0.55rem; min-width: 0; }
+
+	.cal[data-layout="bottombar"] { padding-bottom: 3.3rem; }
+	.cal[data-layout="bottombar"] .cal__head { align-items: center; justify-content: center; text-align: center; }
+	.cal[data-layout="bottombar"] .dock {
+		position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-around; align-items: center;
+		padding: 0.5rem 0.6rem; background: var(--c-surface); border-top: 1px solid var(--c-hair); gap: 0.2rem;
+	}
+	.cal[data-layout="bottombar"] .dock .btn { border: 0; background: transparent; color: var(--c-muted); padding: 0.3rem; }
+	.cal[data-layout="bottombar"] .dock .btn--primary { background: var(--c-accent); color: var(--c-accent-ink); width: 2.2rem; height: 2.2rem; border-radius: 50%; }
+
+	.cal[data-layout="segmented"] .cal__head { flex-direction: column; gap: 0.55rem; }
+	.cal[data-layout="segmented"] .row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+	.cal[data-layout="segmented"] .seg { width: 100%; }
+	.cal[data-layout="segmented"] .seg .btn { flex: 1 1 0; }
+
+	.cal[data-layout="toolbar"] .cal__head { align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+	.cal[data-layout="toolbar"] .cal__head .grow { flex: 1 1 auto; }
+	.cal[data-layout="toolbar"] .seg .btn { padding: 0.3rem 0.5rem; font-size: 0.68rem; }
+
+	.cal[data-layout="dropdown"] .cal__head { align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: wrap; }
+	.cal[data-layout="dropdown"] .cluster { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+	.cal[data-layout="minimal"] .cal__head { flex-direction: column; gap: 0.35rem; }
+	.cal[data-layout="minimal"] .row { display: flex; align-items: center; justify-content: space-between; }
+	.cal[data-layout="minimal"] .linklike { background: none; border: 0; color: var(--c-accent); font: inherit; font-size: 0.76rem; font-weight: 700; cursor: pointer; padding: 0; }
+
+	/* ── Сетка месяца ── */
+	.grid { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; }
+	.grid__wd, .grid__row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+	.wd { text-align: center; font-size: 0.6rem; font-weight: 700; color: var(--c-muted); letter-spacing: 0.04em; padding: 0.15rem 0; text-transform: uppercase; }
+	.cell {
+		min-height: 42px; border-radius: var(--radius); background: var(--c-surface);
+		border: 1px solid var(--c-hair); padding: 2px 3px; display: flex; flex-direction: column; gap: 2px; overflow: hidden;
+	}
+	.cell--out { opacity: 0.4; }
+	.cell--we { background: color-mix(in srgb, var(--c-surface) 92%, var(--c-weekend)); }
+	.daynum { font-size: 0.64rem; font-weight: 700; color: var(--c-ink); align-self: flex-start; line-height: 1.4; padding: 0 1px; }
+	.cell--we .daynum { color: var(--c-weekend); }
+	.cell--today .daynum {
+		background: var(--c-today-bg); color: var(--c-today-ink); border-radius: 50%;
+		width: 1.15rem; height: 1.15rem; display: inline-grid; place-items: center; line-height: 1;
+	}
+
+	.chip {
+		display: flex; align-items: center; gap: 2px; font-size: 0.55rem; line-height: 1.25;
+		border-radius: var(--chip-radius); padding: 1px 3px; min-width: 0; overflow: hidden;
+	}
+	.chip__t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.chip__time { font-weight: 700; opacity: 0.85; flex: 0 0 auto; }
+	.chip--event { background: var(--c-event-bg); color: var(--c-event-ink); }
+	.chip--task { background: transparent; color: var(--c-ink); padding-left: 1px; }
+	.chip--task .box {
+		flex: 0 0 auto; width: 0.62rem; height: 0.62rem; border: 1.4px solid var(--c-task-accent);
+		border-radius: 3px; display: inline-block;
+	}
+	.chip--task.done .box { background: var(--c-task-accent); position: relative; }
+	.chip--task.done .box::after { content: "✓"; position: absolute; inset: 0; color: var(--c-surface); font-size: 0.5rem; display: grid; place-items: center; line-height: 1; }
+	.chip--task.done .chip__t { text-decoration: line-through; color: var(--c-muted); }
+	.more { font-size: 0.52rem; font-weight: 700; color: var(--c-accent); padding: 0 2px; }
+
+	/* Градиентный хедер (для отдельных вариантов) */
+	.cal.head-band { padding-top: 0; }
+	.cal.head-band .cal__head {
+		margin: -0.85rem -0.9rem 0; padding: 0.85rem 0.9rem; background: var(--head-bg); color: var(--head-ink);
+		border-radius: 0;
+	}
+	.cal.head-band .cal__title, .cal.head-band .cal__range, .cal.head-band .cal__kick { color: var(--head-ink); }
+	.cal.head-band .btn--ghost { color: var(--head-ink); opacity: 0.9; }
+
+	.foot { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--hair); color: var(--muted); font-size: 0.82rem; }
+	.foot b { color: var(--ink); }
+	:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+	<header class="masthead">
+		<p class="eyebrow">Дизайн-студия · подборка направлений · <b>20 вариантов</b></p>
+		<h1>Календарь: двадцать характеров одного компонента</h1>
+		<p class="lede">Один и тот же экран «Календарь» из веб-морды — в двадцати визуальных решениях. Меняются <b>палитра</b>, <b>типографика</b> и, главное, <b>набор и расположение кнопок</b>: тулбары, боковой рельс, нижняя панель, плавающая кнопка, сегменты, вкладки. Все превью живые — сетка июля 2026, различие «событие / задача» передаётся формой, а не только цветом.</p>
+		<div class="ribbon" id="ribbon" aria-hidden="true"></div>
+		<div class="legend">
+			<span class="lg"><span class="sw sw-ev"></span> Событие — цветной чип</span>
+			<span class="lg"><span class="box"></span> Задача — чекбокс (форма ≠ цвет)</span>
+			<span class="lg">Сегодня — 14 июля, выделенный день</span>
+		</div>
+	</header>
+
+	<main class="gallery" id="gallery"></main>
+
+	<footer class="foot">
+		<p><b>Как читать.</b> Подпись под каждым превью: номер · название палитры · тип раскладки кнопок. Раскладки повторяются на разных палитрах намеренно — чтобы сравнить один приём в разных цветах. Компонент реюзабельный: цвета и радиусы вынесены в CSS-переменные, раскладка переключается атрибутом — то же, что дизайн-токены + слоты в Svelte-компоненте.</p>
+	</footer>
+</div>
+
+<script>
+	// ── Данные сетки: июль 2026, неделя с понедельника. 1 июля — среда, сегодня 14-е ──
+	const WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+	// o=вне месяца, we=выходной, t=сегодня
+	const WEEKS = [
+		[{ d: 29, o: 1 }, { d: 30, o: 1 }, { d: 1 }, { d: 2 }, { d: 3 }, { d: 4, we: 1 }, { d: 5, we: 1 }],
+		[{ d: 6 }, { d: 7 }, { d: 8 }, { d: 9 }, { d: 10 }, { d: 11, we: 1 }, { d: 12, we: 1 }],
+		[{ d: 13 }, { d: 14, t: 1 }, { d: 15 }, { d: 16 }, { d: 17 }, { d: 18, we: 1 }, { d: 19, we: 1 }],
+		[{ d: 20 }, { d: 21 }, { d: 22 }, { d: 23 }, { d: 24 }, { d: 25, we: 1 }, { d: 26, we: 1 }],
+		[{ d: 27 }, { d: 28 }, { d: 29 }, { d: 30 }, { d: 31 }, { d: 1, o: 1, we: 1 }, { d: 2, o: 1, we: 1 }]
+	];
+	// Записи по дню месяца (только внутри июля). e=событие, t=задача, done=выполнена
+	const ITEMS = {
+		2: [{ e: 1, time: "10:00", t: "Планёрка" }],
+		3: [{ t: "Отчёт", done: 1 }],
+		8: [{ e: 1, time: "12:30", t: "Созвон" }],
+		9: [{ e: 1, time: "14:00", t: "Обед" }, { t: "Счёт" }],
+		14: [{ e: 1, time: "15:00", t: "Демо" }, { t: "Билеты" }],
+		15: [{ e: 1, time: "11:00", t: "1:1" }],
+		17: [{ e: 1, time: "18:00", t: "Релиз" }, { t: "Дедлайн" }],
+		21: [{ e: 1, time: "09:00", t: "Конф." }],
+		23: [{ t: "Врач" }],
+		28: [{ e: 1, time: "16:00", t: "Ретро" }]
+	};
+	const CAP = 2; // макс. чипов в ячейке превью
+
+	function chipsFor(day, outside) {
+		if (outside) return "";
+		const list = ITEMS[day] || [];
+		let html = "";
+		list.slice(0, CAP).forEach((it) => {
+			if (it.e) {
+				html += `<div class="chip chip--event"><span class="chip__time">${it.time}</span><span class="chip__t">${it.t}</span></div>`;
+			} else {
+				html += `<div class="chip chip--task${it.done ? " done" : ""}"><span class="box"></span><span class="chip__t">${it.t}</span></div>`;
+			}
+		});
+		if (list.length > CAP) html += `<span class="more">+${list.length - CAP}</span>`;
+		return html;
+	}
+
+	function gridHtml() {
+		let h = '<div class="grid"><div class="grid__wd">';
+		WD.forEach((w) => (h += `<span class="wd">${w}</span>`));
+		h += "</div>";
+		WEEKS.forEach((week) => {
+			h += '<div class="grid__row">';
+			week.forEach((c) => {
+				const cls = ["cell"];
+				if (c.o) cls.push("cell--out");
+				if (c.we) cls.push("cell--we");
+				if (c.t) cls.push("cell--today");
+				h += `<div class="${cls.join(" ")}"><span class="daynum">${c.d}</span>${chipsFor(c.d, c.o)}</div>`;
+			});
+			h += "</div>";
+		});
+		h += "</div>";
+		return h;
+	}
+	const GRID = gridHtml();
+
+	// ── Строительные блоки хедера ──
+	const B = {
+		title: (t = "Июль 2026") => `<h2 class="cal__title">${t}</h2>`,
+		kickTitle: (t = "Июль 2026") => `<div><div class="cal__kick">Календарь</div><h2 class="cal__title">${t}</h2></div>`,
+		range: (t = "Июль 2026") => `<span class="cal__range">${t}</span>`,
+		today: () => `<button class="btn">Сегодня</button>`,
+		nav: () => `<span class="nav"><button class="btn" aria-label="Назад">‹</button><button class="btn" aria-label="Вперёд">›</button></span>`,
+		views: (kind = "seg") => {
+			if (kind === "tabs")
+				return `<span class="tabs"><button class="tb" aria-pressed="true">Месяц</button><button class="tb" aria-pressed="false">Неделя</button><button class="tb" aria-pressed="false">День</button></span>`;
+			if (kind === "select")
+				return `<select class="sel" aria-label="Вид"><option>Месяц</option><option>Неделя</option><option>День</option></select>`;
+			const sq = kind === "seg-sq" ? " seg--square" : "";
+			return `<span class="seg${sq}"><button class="btn" aria-pressed="true">Месяц</button><button class="btn" aria-pressed="false">Неделя</button><button class="btn" aria-pressed="false">День</button></span>`;
+		},
+		create: (style = "primary") => {
+			if (style === "ghost") return `<button class="btn btn--ghost">＋ Создать</button>`;
+			if (style === "link") return `<button class="linklike">＋ создать</button>`;
+			if (style === "icon") return `<button class="btn btn--icon btn--primary" aria-label="Создать">＋</button>`;
+			return `<button class="btn btn--primary">＋ Создать</button>`;
+		},
+		gear: (ghost = true) => `<button class="btn btn--icon${ghost ? " btn--ghost" : ""}" aria-label="Настройки">⚙</button>`
+	};
+
+	// ── Раскладки: собирают внутренности .cal под конкретный тип ──
+	const LAYOUTS = {
+		topbar: (v) =>
+			`<header class="cal__head">${B.kickTitle()}<span class="grow"></span>${B.nav()}${B.views(v.seg || "seg")}${B.create()}${B.gear()}</header>${GRID}`,
+
+		split: (v) =>
+			`<header class="cal__head">
+				<div class="row">${B.title()}<span class="cluster">${B.create(v.create || "primary")}${B.gear()}</span></div>
+				<div class="row"><span class="cluster">${B.today()}${B.nav()}</span>${B.views(v.seg || "seg")}</div>
+			</header>${GRID}`,
+
+		center: (v) =>
+			`<header class="cal__head">
+				<div class="cal__cornersettings">${B.gear()}</div>
+				<div class="cal__kick">Календарь</div>
+				<div class="row"><button class="btn btn--icon" aria-label="Назад">‹</button>${B.title()}<button class="btn btn--icon" aria-label="Вперёд">›</button></div>
+				${B.views(v.seg || "seg")}
+				${B.create()}
+			</header>${GRID}`,
+
+		fab: (v) =>
+			`<header class="cal__head">${B.kickTitle()}<span class="cluster">${B.today()}${B.nav()}</span></header>
+			<div class="row" style="display:flex;justify-content:space-between;align-items:center">${B.views(v.seg || "seg")}${B.gear()}</div>
+			${GRID}<button class="cal__fab" aria-label="Создать">＋</button>`,
+
+		sidebar: (v) =>
+			`<nav class="rail">${B.gear()}${B.create("icon")}<button class="btn" aria-label="Сегодня">•</button><button class="btn" aria-label="Назад">‹</button><button class="btn" aria-label="Вперёд">›</button>${B.views("seg-sq")}</nav>
+			<div class="main"><header class="cal__head" style="display:block">${B.kickTitle()}</header>${GRID}</div>`,
+
+		bottombar: (v) =>
+			`<header class="cal__head">${B.range()}</header>${GRID}
+			<nav class="dock">${B.gear()}<button class="btn btn--icon" aria-label="Назад">‹</button><button class="btn btn--icon" aria-label="Сегодня">◎</button><button class="btn btn--icon btn--primary" aria-label="Создать">＋</button><button class="btn btn--icon" aria-label="Вперёд">›</button><button class="btn btn--icon" aria-label="Вид">▦</button></nav>`,
+
+		segmented: (v) =>
+			`<header class="cal__head">
+				<div class="row"><span class="cluster"><button class="btn btn--icon" aria-label="Назад">‹</button>${B.title()}<button class="btn btn--icon" aria-label="Вперёд">›</button></span>${B.gear()}</div>
+				<div class="row">${B.views("seg")}${B.create("icon")}</div>
+			</header>${GRID}`,
+
+		toolbar: (v) =>
+			`<header class="cal__head">${B.nav()}${B.range()}<span class="grow"></span>${B.views("seg")}${B.create("icon")}${B.gear()}</header>${GRID}`,
+
+		dropdown: (v) =>
+			`<header class="cal__head"><span class="cluster">${B.kickTitle()}</span><span class="cluster">${B.nav()}${B.views("select")}${B.create()}${B.gear()}</span></header>${GRID}`,
+
+		minimal: (v) =>
+			`<header class="cal__head">
+				<div class="row"><div class="cal__kick">Календарь · Июль 2026</div>${B.create("link")}</div>
+				<div class="row">${B.title("Июль")}<span class="cluster">${B.views("tabs")}${B.nav()}</span></div>
+			</header>${GRID}`
+	};
+
+	// ══ 20 вариантов: палитра + раскладка ══
+	const V = [
+		{
+			name: "Ясный день", note: "Топ-бар · индиго", layout: "topbar",
+			vars: { "--c-accent": "#3b5bdb", "--c-today-bg": "#3b5bdb", "--c-event-bg": "#3b5bdb", "--c-task-accent": "#e8990c", "--c-hair": "#e9e9ef", "--c-weekend": "#c0392b" },
+			sw: ["#3b5bdb", "#e8990c", "#c0392b", "#ffffff"]
+		},
+		{
+			name: "Полночь", note: "Две строки · фиолетовый глоу", layout: "split", dark: 1,
+			vars: { "--c-bg": "#12131a", "--c-surface": "#1b1d27", "--c-ink": "#e8e9f2", "--c-muted": "#8a8ca0", "--c-hair": "#2a2c3a", "--c-accent": "#7c8cff", "--c-accent-ink": "#0c0d14", "--c-today-bg": "#7c8cff", "--c-today-ink": "#0c0d14", "--c-event-bg": "#5865f2", "--c-event-ink": "#fff", "--c-task-accent": "#f2c14e", "--c-btn-bd": "#343648", "--c-btn-ink": "#c9cbdb", "--c-weekend": "#9aa0c4" },
+			sw: ["#7c8cff", "#5865f2", "#f2c14e", "#12131a"]
+		},
+		{
+			name: "Мятный", note: "FAB · изумруд", layout: "fab", seg: "seg",
+			vars: { "--radius": "12px", "--chip-radius": "6px", "--c-accent": "#0d9488", "--c-today-bg": "#0d9488", "--c-event-bg": "#0d9488", "--c-event-ink": "#fff", "--c-task-accent": "#0891b2", "--c-hair": "#e0eee9", "--c-bg": "#f7fbf9", "--c-surface": "#ffffff", "--c-weekend": "#0d9488" },
+			sw: ["#0d9488", "#0891b2", "#f7fbf9", "#ffffff"]
+		},
+		{
+			name: "Коралл", note: "Центр-стек · тёплый коралл", layout: "center", font: "serif",
+			vars: { "--radius": "14px", "--chip-radius": "8px", "--c-bg": "#fdf6f3", "--c-surface": "#fffcfb", "--c-accent": "#f0655a", "--c-today-bg": "#f0655a", "--c-event-bg": "#f0655a", "--c-event-ink": "#fff", "--c-task-accent": "#d98324", "--c-hair": "#f2ddd6", "--c-ink": "#43302b", "--c-muted": "#9c7c72", "--c-btn-bd": "#ecccc2", "--c-weekend": "#c0574c" },
+			sw: ["#f0655a", "#d98324", "#fdf6f3", "#fffcfb"]
+		},
+		{
+			name: "Графит", note: "Icon-toolbar · монохром", layout: "toolbar",
+			vars: { "--radius": "6px", "--chip-radius": "3px", "--c-accent": "#2b2b2f", "--c-today-bg": "#2b2b2f", "--c-event-bg": "#3f3f46", "--c-event-ink": "#fff", "--c-task-accent": "#6b7280", "--c-hair": "#e7e7e9", "--c-bg": "#fafafa", "--c-surface": "#ffffff", "--c-muted": "#8a8a90", "--c-weekend": "#8a8a90" },
+			sw: ["#2b2b2f", "#3f3f46", "#6b7280", "#fafafa"]
+		},
+		{
+			name: "Неон", note: "Нижняя панель · киберпанк", layout: "bottombar", font: "mono", dark: 1,
+			vars: { "--radius": "6px", "--chip-radius": "3px", "--c-bg": "#0a0a12", "--c-surface": "#12121e", "--c-ink": "#e6e6ff", "--c-muted": "#7a7ab0", "--c-hair": "#232342", "--c-accent": "#ff2d95", "--c-accent-ink": "#0a0a12", "--c-today-bg": "#ff2d95", "--c-today-ink": "#0a0a12", "--c-event-bg": "#00e5d0", "--c-event-ink": "#04121a", "--c-task-accent": "#ffd400", "--c-btn-bd": "#2f2f55", "--c-btn-ink": "#c9c9ff", "--c-weekend": "#ff2d95" },
+			sw: ["#ff2d95", "#00e5d0", "#ffd400", "#0a0a12"]
+		},
+		{
+			name: "Пастель", note: "Боковой рельс · лаванда", layout: "sidebar",
+			vars: { "--radius": "12px", "--chip-radius": "7px", "--c-bg": "#f7f5fc", "--c-surface": "#ffffff", "--c-accent": "#8b7ff0", "--c-today-bg": "#8b7ff0", "--c-event-bg": "#a99cf5", "--c-event-ink": "#2c2547", "--c-task-accent": "#e58fb4", "--c-hair": "#ece7f7", "--c-ink": "#3b3457", "--c-muted": "#8f88a8", "--c-btn-bd": "#e3ddf3", "--c-weekend": "#b58fd6" },
+			sw: ["#8b7ff0", "#a99cf5", "#e58fb4", "#f7f5fc"]
+		},
+		{
+			name: "Material 3", note: "FAB · тональный пурпур", layout: "fab", seg: "seg",
+			vars: { "--radius": "16px", "--chip-radius": "8px", "--c-bg": "#fef7ff", "--c-surface": "#f7f2fa", "--c-accent": "#6750a4", "--c-today-bg": "#6750a4", "--c-event-bg": "#6750a4", "--c-event-ink": "#fff", "--c-task-accent": "#7d5260", "--c-hair": "#e7e0ec", "--c-ink": "#1d1b20", "--c-muted": "#7a757f", "--c-btn-bd": "#cac4d0", "--c-weekend": "#7d5260" },
+			sw: ["#6750a4", "#7d5260", "#fef7ff", "#f7f2fa"]
+		},
+		{
+			name: "Стекло", note: "Топ-бар · градиент-подложка", layout: "topbar", glass: 1,
+			vars: { "--radius": "12px", "--chip-radius": "7px", "--c-bg": "linear-gradient(135deg,#dbe9ff,#f3e6ff 55%,#ffe6f0)", "--c-surface": "rgba(255,255,255,0.55)", "--c-accent": "#5b6cff", "--c-today-bg": "#5b6cff", "--c-event-bg": "rgba(91,108,255,0.85)", "--c-event-ink": "#fff", "--c-task-accent": "#c05fd6", "--c-hair": "rgba(255,255,255,0.7)", "--c-ink": "#2a2b45", "--c-muted": "#5f6088", "--c-btn-bd": "rgba(255,255,255,0.8)", "--c-btn": "rgba(255,255,255,0.5)", "--c-weekend": "#7a5fd6" },
+			sw: ["#5b6cff", "#c05fd6", "#dbe9ff", "#ffe6f0"]
+		},
+		{
+			name: "Хвоя", note: "Топ-бар · сосна на бумаге", layout: "topbar", font: "serif",
+			vars: { "--radius": "8px", "--chip-radius": "4px", "--c-bg": "#f4f2ea", "--c-surface": "#fbfaf5", "--c-accent": "#1f4d3f", "--c-today-bg": "#1f4d3f", "--c-event-bg": "#2f6b57", "--c-event-ink": "#f4f2ea", "--c-task-accent": "#a06a2c", "--c-hair": "#e2ded0", "--c-ink": "#2a2e2b", "--c-muted": "#78766a", "--c-btn-bd": "#ddd8c8", "--c-weekend": "#8a6a3a" },
+			sw: ["#1f4d3f", "#2f6b57", "#a06a2c", "#f4f2ea"]
+		},
+		{
+			name: "Контраст", note: "Топ-бар · high-contrast a11y", layout: "topbar",
+			vars: { "--radius": "4px", "--chip-radius": "2px", "--c-bg": "#ffffff", "--c-surface": "#ffffff", "--c-accent": "#0000cc", "--c-today-bg": "#0000cc", "--c-event-bg": "#0000cc", "--c-event-ink": "#fff", "--c-task-accent": "#000000", "--c-hair": "#000000", "--c-ink": "#000000", "--c-muted": "#333333", "--c-btn-bd": "#000000", "--c-btn-ink": "#000000", "--c-weekend": "#b30000" },
+			sw: ["#0000cc", "#000000", "#b30000", "#ffffff"]
+		},
+		{
+			name: "Бирюза плотная", note: "Icon-toolbar · компактный teal", layout: "toolbar",
+			vars: { "--radius": "5px", "--chip-radius": "3px", "--c-bg": "#f2fbfc", "--c-surface": "#ffffff", "--c-accent": "#0891b2", "--c-today-bg": "#0891b2", "--c-event-bg": "#0e7490", "--c-event-ink": "#fff", "--c-task-accent": "#d97706", "--c-hair": "#d7edf1", "--c-ink": "#0f2c33", "--c-muted": "#5b8791", "--c-btn-bd": "#c3e4ea", "--c-weekend": "#0e7490" },
+			sw: ["#0891b2", "#0e7490", "#d97706", "#f2fbfc"]
+		},
+		{
+			name: "iOS система", note: "Сегменты · системный синий", layout: "segmented",
+			vars: { "--radius": "10px", "--chip-radius": "6px", "--c-bg": "#f2f2f7", "--c-surface": "#ffffff", "--c-accent": "#007aff", "--c-today-bg": "#ff3b30", "--c-today-ink": "#fff", "--c-event-bg": "#007aff", "--c-event-ink": "#fff", "--c-task-accent": "#34c759", "--c-hair": "#e3e3e8", "--c-ink": "#1c1c1e", "--c-muted": "#8e8e93", "--c-btn-bd": "#d6d6db", "--c-weekend": "#8e8e93" },
+			sw: ["#007aff", "#ff3b30", "#34c759", "#f2f2f7"]
+		},
+		{
+			name: "Закат", note: "Две строки · градиент-хедер", layout: "split", band: 1,
+			vars: { "--radius": "10px", "--chip-radius": "6px", "--c-bg": "#fff9f6", "--c-surface": "#ffffff", "--c-accent": "#e0457b", "--c-today-bg": "#e0457b", "--c-event-bg": "#f2683f", "--c-event-ink": "#fff", "--c-task-accent": "#8b5cf6", "--c-hair": "#f6e2dc", "--c-ink": "#3a2531", "--c-muted": "#9a7885", "--c-btn-bd": "#f0d5cd", "--c-weekend": "#c85a8a", "--head-bg": "linear-gradient(120deg,#ff8a3d,#e0457b 55%,#8b5cf6)", "--head-ink": "#ffffff" },
+			sw: ["#e0457b", "#f2683f", "#8b5cf6", "#ff8a3d"]
+		},
+		{
+			name: "Брутализм", note: "Минимал-вкладки · чёрные рамки", layout: "minimal", font: "mono",
+			vars: { "--radius": "0px", "--chip-radius": "0px", "--c-bg": "#f5f000", "--c-surface": "#ffffff", "--c-accent": "#000000", "--c-today-bg": "#000000", "--c-today-ink": "#f5f000", "--c-event-bg": "#000000", "--c-event-ink": "#ffffff", "--c-task-accent": "#000000", "--c-hair": "#000000", "--c-ink": "#000000", "--c-muted": "#000000", "--c-btn-bd": "#000000", "--c-weekend": "#000000" },
+			sw: ["#000000", "#f5f000", "#ffffff", "#000000"]
+		},
+		{
+			name: "Янтарь", note: "Центр-стек · тёплый амбер", layout: "center",
+			vars: { "--radius": "12px", "--chip-radius": "7px", "--c-bg": "#fdf8ef", "--c-surface": "#fffdf8", "--c-accent": "#d97706", "--c-today-bg": "#d97706", "--c-event-bg": "#b45309", "--c-event-ink": "#fff", "--c-task-accent": "#0f766e", "--c-hair": "#efe3cf", "--c-ink": "#43331a", "--c-muted": "#9a8256", "--c-btn-bd": "#ecdcc0", "--c-weekend": "#b45309" },
+			sw: ["#d97706", "#b45309", "#0f766e", "#fdf8ef"]
+		},
+		{
+			name: "Океан", note: "Боковой рельс · глубокий navy", layout: "sidebar", dark: 1,
+			vars: { "--radius": "10px", "--chip-radius": "6px", "--c-bg": "#0c1a2b", "--c-surface": "#13273d", "--c-ink": "#dbeafe", "--c-muted": "#7d9cc0", "--c-hair": "#1f3a56", "--c-accent": "#38bdf8", "--c-accent-ink": "#04121f", "--c-today-bg": "#38bdf8", "--c-today-ink": "#04121f", "--c-event-bg": "#2563eb", "--c-event-ink": "#fff", "--c-task-accent": "#5eead4", "--c-btn-bd": "#274b6e", "--c-btn-ink": "#a9c6e6", "--c-weekend": "#7dd3fc" },
+			sw: ["#38bdf8", "#2563eb", "#5eead4", "#0c1a2b"]
+		},
+		{
+			name: "Сакура", note: "View-dropdown · нежная роза", layout: "dropdown", font: "serif",
+			vars: { "--radius": "14px", "--chip-radius": "8px", "--c-bg": "#fdf2f6", "--c-surface": "#fffafc", "--c-accent": "#db2777", "--c-today-bg": "#db2777", "--c-event-bg": "#ec4899", "--c-event-ink": "#fff", "--c-task-accent": "#9d5bd2", "--c-hair": "#f6dfe9", "--c-ink": "#4a2536", "--c-muted": "#a97387", "--c-btn-bd": "#f0cfdd", "--c-weekend": "#c05a8a" },
+			sw: ["#db2777", "#ec4899", "#9d5bd2", "#fdf2f6"]
+		},
+		{
+			name: "Королевский", note: "Топ-бар · графит и золото", layout: "topbar", font: "serif", dark: 1,
+			vars: { "--radius": "8px", "--chip-radius": "4px", "--c-bg": "#191922", "--c-surface": "#21212c", "--c-ink": "#ece7dc", "--c-muted": "#9a927f", "--c-hair": "#33333f", "--c-accent": "#c9a227", "--c-accent-ink": "#191922", "--c-today-bg": "#c9a227", "--c-today-ink": "#191922", "--c-event-bg": "#8a6f2a", "--c-event-ink": "#fdf6e3", "--c-task-accent": "#c9a227", "--c-btn-bd": "#3f3f4d", "--c-btn-ink": "#d8d0bd", "--c-weekend": "#c9a227" },
+			sw: ["#c9a227", "#8a6f2a", "#ece7dc", "#191922"]
+		},
+		{
+			name: "Электрик", note: "Нижняя панель · электрик-блю", layout: "bottombar",
+			vars: { "--radius": "10px", "--chip-radius": "6px", "--c-bg": "#f4f6ff", "--c-surface": "#ffffff", "--c-accent": "#2563eb", "--c-today-bg": "#2563eb", "--c-event-bg": "#4f46e5", "--c-event-ink": "#fff", "--c-task-accent": "#db2777", "--c-hair": "#e2e6f7", "--c-ink": "#1a1f3d", "--c-muted": "#6b7299", "--c-btn-bd": "#d3d9f2", "--c-weekend": "#4f46e5" },
+			sw: ["#2563eb", "#4f46e5", "#db2777", "#f4f6ff"]
+		}
+	];
+
+	// ── Рендер галереи ──
+	const gallery = document.getElementById("gallery");
+	const pad2 = (n) => String(n).padStart(2, "0");
+
+	V.forEach((v, i) => {
+		const card = document.createElement("article");
+		card.className = "card";
+
+		const cls = ["cal"];
+		if (v.font === "serif") cls.push("f-serif");
+		if (v.font === "mono") cls.push("f-mono");
+		if (v.band) cls.push("head-band");
+
+		const styleStr = Object.entries(v.vars).map(([k, val]) => `${k}:${val}`).join(";");
+		const inner = LAYOUTS[v.layout](v);
+
+		const swDots = v.sw.map((c) => `<i style="background:${c}"></i>`).join("");
+
+		card.innerHTML =
+			`<div class="${cls.join(" ")}" data-layout="${v.layout}" style="${styleStr}">${inner}</div>` +
+			`<div class="meta"><span class="meta__n">${pad2(i + 1)}</span>` +
+			`<div class="meta__body"><h3>${v.name}</h3><p>${v.note}</p></div>` +
+			`<div class="meta__sw" aria-hidden="true">${swDots}</div></div>`;
+
+		gallery.appendChild(card);
+	});
+
+	// Лента-индекс из акцентов (первый свотч каждого варианта)
+	const ribbon = document.getElementById("ribbon");
+	ribbon.innerHTML = V.map((v) => `<span style="background:${v.sw[0]}"></span>`).join("");
+
+	// Немного жизни: переключение вида/вкладок внутри карточки (не влияет на данные превью)
+	gallery.addEventListener("click", (e) => {
+		const t = e.target.closest(".seg .btn, .tabs .tb");
+		if (!t) return;
+		const group = t.closest(".seg, .tabs");
+		group.querySelectorAll("[aria-pressed]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+		t.setAttribute("aria-pressed", "true");
+	});
+</script>
+</body>
+</html>

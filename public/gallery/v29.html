@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>29. Сталь / плотная сетка с номерами недель</title>
+<style>
+  /* Вариант 29 — плотная сетка: колонка номеров недель + мини-превью задач в ячейках */
+  :root{
+    --bg:#e9edf1; --card:#fbfcfd; --ink:#212a33; --dim:#78848f; --line:#cdd6de;
+    --accent:#4a6274; --accent2:#7a93a6; --wknd:#f2f5f8; --chip:#dde5ec;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);overflow-x:hidden;
+    font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  .wrap{max-width:430px;margin:0 auto;padding:12px 10px 34px}
+  /* Компактная шапка */
+  .bar{display:flex;align-items:center;gap:8px;background:var(--accent);border-radius:10px 10px 0 0;padding:10px 12px;color:#eef4f8}
+  .bar .head{flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit;font-family:inherit}
+  .bar .m{font-size:20px;font-weight:700;letter-spacing:-.2px;display:flex;align-items:center;gap:6px}
+  .bar .m .cv{font-size:12px;opacity:.75;font-weight:400}
+  .bar .y{font-size:11px;opacity:.75;letter-spacing:.22em;margin-top:2px}
+  .bar .tbtn{flex:none;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;
+    border-radius:7px;padding:7px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+  .table{background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;overflow:hidden}
+  .row{display:grid;grid-template-columns:26px repeat(7,1fr)}
+  .hrow div{padding:6px 0;text-align:center;font-size:10px;font-weight:700;color:var(--dim);
+    text-transform:uppercase;background:#eff3f7;border-bottom:1px solid var(--line)}
+  .hrow div.wn{color:var(--accent2);font-size:9px}
+  .wn{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent2);
+    background:#eff3f7;border-right:1px solid var(--line)}
+  .cell{min-height:60px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+    padding:3px 3px 2px;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+  .row .cell:last-child{border-right:0}
+  .cell.wknd{background:var(--wknd)}
+  .cell .d{font-size:12px;font-weight:700;line-height:1.1;color:var(--ink)}
+  .cell.out .d{color:#b3bfc9;font-weight:500}
+  .cell.today{background:#dceaf4;box-shadow:inset 0 0 0 2px var(--accent)}
+  .cell.today .d{color:var(--accent);font-size:13px}
+  .mini{font-size:8.5px;line-height:1.25;border-radius:3px;padding:1px 3px;background:var(--chip);color:#3b4b57;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini.a{background:#cfe0ec}
+  .mini.b{background:#e0d9cd}
+  .mini.c{background:#d3e3d6}
+  .more{font-size:8px;color:var(--dim);padding-left:2px}
+  .legend{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:var(--dim)}
+  .legend .sw{display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--line);
+    border-radius:6px;padding:5px 9px}
+  .legend .sw i{width:9px;height:9px;border-radius:2px;display:block}
+  .total{margin-left:auto;font-weight:700;color:var(--ink)}
+  /* Модалка */
+  .ovl{position:fixed;inset:0;background:rgba(33,42,51,.5);display:none;align-items:center;justify-content:center;padding:14px;z-index:9}
+  .ovl.on{display:flex}
+  .dlg{width:100%;max-width:390px;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .dlg .t{background:var(--accent);color:#eef4f8;padding:10px 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+  .ynav{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .ynav b{font-size:19px;font-weight:700}
+  .ynav button{width:36px;height:34px;border:1px solid var(--line);background:#eff3f7;color:var(--accent);
+    border-radius:6px;font-size:16px;cursor:pointer}
+  .mgrid{display:grid;grid-template-columns:repeat(4,1fr)}
+  .mgrid button{border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--card);
+    padding:12px 2px;font-size:12px;color:var(--ink);cursor:pointer;font-family:inherit}
+  .mgrid button:nth-child(4n){border-right:0}
+  .mgrid button:nth-child(n+9){border-bottom:0}
+  .mgrid button.cur{background:var(--accent);color:#fff;font-weight:700}
+  .cancel{width:100%;border:0;border-top:1px solid var(--line);background:#eff3f7;padding:12px;
+    font-size:13px;color:var(--dim);cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <button class="head" id="head" aria-haspopup="dialog">
+      <div class="m"><span id="hMonth"></span><span class="cv">▾</span></div>
+      <div class="y" id="hYear"></div>
+    </button>
+    <button class="tbtn" id="tbtn">Сегодня</button>
+  </div>
+  <div class="table">
+    <div class="row hrow" id="hrow"></div>
+    <div id="body"></div>
+  </div>
+  <div class="legend">
+    <span class="sw"><i style="background:#cfe0ec"></i>работа</span>
+    <span class="sw"><i style="background:#e0d9cd"></i>дом</span>
+    <span class="sw"><i style="background:#d3e3d6"></i>личное</span>
+    <span class="total" id="total"></span>
+  </div>
+</div>
+
+<div class="ovl" id="ovl" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="dlg">
+    <div class="t">Переход к месяцу</div>
+    <div class="ynav">
+      <button id="prevY" aria-label="Предыдущий год">‹</button>
+      <b id="yLbl"></b>
+      <button id="nextY" aria-label="Следующий год">›</button>
+    </div>
+    <div class="mgrid" id="mgrid"></div>
+    <button class="cancel" id="cancel">Отмена</button>
+  </div>
+</div>
+
+<script>
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MSHORT=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const WD=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const TITLES=[['Планёрка','a'],['Ревью','a'],['Отчёт','a'],['Созвон','a'],['Счета','b'],['Уборка','b'],
+    ['Продукты','b'],['Стирка','b'],['Спорт','c'],['Книга','c'],['Врач','c'],['Прогулка','c']];
+  const today=new Date();
+  let vy=today.getFullYear(), vm=today.getMonth(), pickY=vy;
+
+  function rnd(y,m,d,k){const x=Math.sin((y*12+m)*21.9+d*4.31+k*1.9)*10000;return x-Math.floor(x);}
+  function tasksOf(y,m,d){
+    const n=rnd(y,m,d,0)<.35?0:1+Math.floor(rnd(y,m,d,1)*10)%3;
+    const out=[];
+    for(let k=0;k<n;k++) out.push(TITLES[Math.floor(rnd(y,m,d,k+3)*TITLES.length)]);
+    return out;
+  }
+  // Номер недели по ISO 8601
+  function isoWeek(y,m,d){
+    const t=new Date(Date.UTC(y,m,d));
+    t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7)+3);
+    const f=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+    f.setUTCDate(f.getUTCDate()-((f.getUTCDay()+6)%7)+3);
+    return 1+Math.round((t-f)/604800000);
+  }
+
+  document.getElementById('hrow').innerHTML='<div class="wn">нед</div>'+WD.map(d=>'<div>'+d+'</div>').join('');
+
+  function draw(){
+    document.getElementById('hMonth').textContent=MONTHS[vm];
+    document.getElementById('hYear').textContent=vy+' год';
+    const off=(new Date(vy,vm,1).getDay()+6)%7;
+    const dim=new Date(vy,vm+1,0).getDate();
+    const start=new Date(vy,vm,1-off);
+    const weeks=Math.ceil((off+dim)/7);
+    let html='',total=0;
+    for(let w=0;w<weeks;w++){
+      const wStart=new Date(start.getFullYear(),start.getMonth(),start.getDate()+w*7);
+      html+='<div class="row"><div class="wn">'+isoWeek(wStart.getFullYear(),wStart.getMonth(),wStart.getDate())+'</div>';
+      for(let i=0;i<7;i++){
+        const cur=new Date(start.getFullYear(),start.getMonth(),start.getDate()+w*7+i);
+        const isOut=cur.getMonth()!==vm;
+        const isT=cur.getDate()===today.getDate()&&cur.getMonth()===today.getMonth()&&cur.getFullYear()===today.getFullYear();
+        const list=isOut?[]:tasksOf(cur.getFullYear(),cur.getMonth(),cur.getDate());
+        total+=list.length;
+        const shown=list.slice(0,2).map(x=>'<div class="mini '+x[1]+'">'+x[0]+'</div>').join('');
+        const more=list.length>2?'<div class="more">+'+(list.length-2)+'</div>':'';
+        html+='<div class="cell'+(isOut?' out':'')+(isT?' today':'')+(i>4?' wknd':'')+'">'+
+              '<div class="d">'+cur.getDate()+'</div>'+shown+more+'</div>';
+      }
+      html+='</div>';
+    }
+    document.getElementById('body').innerHTML=html;
+    document.getElementById('total').textContent='Всего: '+total;
+  }
+
+  function drawMonths(){
+    document.getElementById('yLbl').textContent=pickY;
+    document.getElementById('mgrid').innerHTML=MSHORT.map((m,i)=>
+      '<button data-m="'+i+'" class="'+(i===vm&&pickY===vy?'cur':'')+'">'+m+'</button>').join('');
+  }
+
+  const ovl=document.getElementById('ovl');
+  const open=()=>{pickY=vy;drawMonths();ovl.classList.add('on');};
+  const close=()=>ovl.classList.remove('on');
+
+  document.getElementById('head').addEventListener('click',open);
+  document.getElementById('cancel').addEventListener('click',close);
+  ovl.addEventListener('click',e=>{if(e.target===ovl)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ovl.classList.contains('on'))close();});
+  document.getElementById('prevY').addEventListener('click',()=>{pickY--;drawMonths();});
+  document.getElementById('nextY').addEventListener('click',()=>{pickY++;drawMonths();});
+  document.getElementById('mgrid').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-m]');if(!b)return;
+    vm=+b.dataset.m;vy=pickY;draw();close();
+  });
+  document.getElementById('tbtn').addEventListener('click',()=>{vy=today.getFullYear();vm=today.getMonth();draw();});
+
+  draw();
+</script>
+</body>
+</html>

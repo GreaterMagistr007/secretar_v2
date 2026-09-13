@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Секретарь — варианты календаря</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #fff; --ink: #1b2330; --muted: #626d7d;
+    --line: #e2e6ec; --accent: #2f4858; --radius: 14px;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12161b; --surface: #1a1f26; --ink: #e9edf2; --muted: #98a3b2; --line: #2a313a; --accent: #7fb2c9; }
+  }
+  * { box-sizing: border-box; }
+  html { overflow-x: hidden; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  }
+  header { max-width: 1100px; margin: 0 auto 20px; }
+  h1 { margin: 0 0 6px; font-size: clamp(1.4rem, 6vw, 2rem); }
+  .lead { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .lead a { color: inherit; }
+  .grid {
+    max-width: 1100px; margin: 0 auto; display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .card__frame { position: relative; display: block; height: 300px; overflow: hidden; background: var(--bg); }
+  .card__frame iframe {
+    width: 390px; height: 780px; border: 0;
+    transform: scale(0.62); transform-origin: top left; pointer-events: none;
+  }
+  .card__shield { position: absolute; inset: 0; }
+  .card__meta { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+  .card__num { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); }
+  .card__name { flex: 1; min-width: 0; font-size: 0.92rem; overflow-wrap: anywhere; }
+  .card__open { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.88rem; white-space: nowrap; }
+  footer { max-width: 1100px; margin: 28px auto 0; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Варианты экрана «Календарь»</h1>
+    <p class="lead">Тридцать макетов на выбор: разные раскладки и расцветки. В каждом — блок месяца сверху, клик по нему открывает переход к нужному месяцу. Превью кликабельны, открываются в отдельной вкладке — там макет работает целиком.</p>
+  </header>
+  <main class="grid">
+      <article class="card">
+        <a class="card__frame" href="v01.html" target="_blank" rel="noopener">
+          <iframe src="v01.html" loading="lazy" title="Ясный день / панель сверху" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">01</span>
+          <span class="card__name">Ясный день / панель сверху</span>
+          <a class="card__open" href="v01.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v02.html" target="_blank" rel="noopener">
+          <iframe src="v02.html" loading="lazy" title="Тёплый песок / заголовок слева" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">02</span>
+          <span class="card__name">Тёплый песок / заголовок слева</span>
+          <a class="card__open" href="v02.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v03.html" target="_blank" rel="noopener">
+          <iframe src="v03.html" loading="lazy" title="Северный лёд / заголовок-герой" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">03</span>
+          <span class="card__name">Северный лёд / заголовок-герой</span>
+          <a class="card__open" href="v03.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v04.html" target="_blank" rel="noopener">
+          <iframe src="v04.html" loading="lazy" title="Мятный сад / сегментированный переключатель" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">04</span>
+          <span class="card__name">Мятный сад / сегментированный переключатель</span>
+          <a class="card__open" href="v04.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v05.html" target="_blank" rel="noopener">
+          <iframe src="v05.html" loading="lazy" title="Полночь / нижняя панель навигации" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">05</span>
+          <span class="card__name">Полночь / нижняя панель навигации</span>
+          <a class="card__open" href="v05.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v06.html" target="_blank" rel="noopener">
+          <iframe src="v06.html" loading="lazy" title="Коралловый риф / месяц-таблетка" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">06</span>
+          <span class="card__name">Коралловый риф / месяц-таблетка</span>
+          <a class="card__open" href="v06.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v07.html" target="_blank" rel="noopener">
+          <iframe src="v07.html" loading="lazy" title="Графит / двухстрочная шапка" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">07</span>
+          <span class="card__name">Графит / двухстрочная шапка</span>
+          <a class="card__open" href="v07.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v08.html" target="_blank" rel="noopener">
+          <iframe src="v08.html" loading="lazy" title="Тихий минимализм / тонкие линии" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">08</span>
+          <span class="card__name">Тихий минимализм / тонкие линии</span>
+          <a class="card__open" href="v08.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v09.html" target="_blank" rel="noopener">
+          <iframe src="v09.html" loading="lazy" title="Пастельные карточки / шапка с тенью" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">09</span>
+          <span class="card__name">Пастельные карточки / шапка с тенью</span>
+          <a class="card__open" href="v09.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v10.html" target="_blank" rel="noopener">
+          <iframe src="v10.html" loading="lazy" title="Фиолетовый блок / акцентная шапка" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">10</span>
+          <span class="card__name">Фиолетовый блок / акцентная шапка</span>
+          <a class="card__open" href="v10.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v11.html" target="_blank" rel="noopener">
+          <iframe src="v11.html" loading="lazy" title="Хвоя / список задач под календарём" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">11</span>
+          <span class="card__name">Хвоя / список задач под календарём</span>
+          <a class="card__open" href="v11.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v12.html" target="_blank" rel="noopener">
+          <iframe src="v12.html" loading="lazy" title="Бирюза / колонка номеров недель" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">12</span>
+          <span class="card__name">Бирюза / колонка номеров недель</span>
+          <a class="card__open" href="v12.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v13.html" target="_blank" rel="noopener">
+          <iframe src="v13.html" loading="lazy" title="Янтарь / кнопка добавления в углу" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">13</span>
+          <span class="card__name">Янтарь / кнопка добавления в углу</span>
+          <a class="card__open" href="v13.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v14.html" target="_blank" rel="noopener">
+          <iframe src="v14.html" loading="lazy" title="Светлый графит / воздушная компактная сетка" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">14</span>
+          <span class="card__name">Светлый графит / воздушная компактная сетка</span>
+          <a class="card__open" href="v14.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v15.html" target="_blank" rel="noopener">
+          <iframe src="v15.html" loading="lazy" title="Океан / квадраты-заливка по загруженности" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">15</span>
+          <span class="card__name">Океан / квадраты-заливка по загруженности</span>
+          <a class="card__open" href="v15.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v16.html" target="_blank" rel="noopener">
+          <iframe src="v16.html" loading="lazy" title="Сакура / «Сегодня» слева, месяц справа" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">16</span>
+          <span class="card__name">Сакура / «Сегодня» слева, месяц справа</span>
+          <a class="card__open" href="v16.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v17.html" target="_blank" rel="noopener">
+          <iframe src="v17.html" loading="lazy" title="Брутализм / чёрно-жёлтый моноширинный" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">17</span>
+          <span class="card__name">Брутализм / чёрно-жёлтый моноширинный</span>
+          <a class="card__open" href="v17.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v18.html" target="_blank" rel="noopener">
+          <iframe src="v18.html" loading="lazy" title="Стекло / размытая шапка на градиенте" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">18</span>
+          <span class="card__name">Стекло / размытая шапка на градиенте</span>
+          <a class="card__open" href="v18.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v19.html" target="_blank" rel="noopener">
+          <iframe src="v19.html" loading="lazy" title="Терракота / недели-карточки" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">19</span>
+          <span class="card__name">Терракота / недели-карточки</span>
+          <a class="card__open" href="v19.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v20.html" target="_blank" rel="noopener">
+          <iframe src="v20.html" loading="lazy" title="Неон / тёмная тема со свечением" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">20</span>
+          <span class="card__name">Неон / тёмная тема со свечением</span>
+          <a class="card__open" href="v20.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v21.html" target="_blank" rel="noopener">
+          <iframe src="v21.html" loading="lazy" title="Полночь / крупный тонкий месяц" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">21</span>
+          <span class="card__name">Полночь / крупный тонкий месяц</span>
+          <a class="card__open" href="v21.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v22.html" target="_blank" rel="noopener">
+          <iframe src="v22.html" loading="lazy" title="Системный iOS / крупный заголовок" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">22</span>
+          <span class="card__name">Системный iOS / крупный заголовок</span>
+          <a class="card__open" href="v22.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v23.html" target="_blank" rel="noopener">
+          <iframe src="v23.html" loading="lazy" title="Material 3 / скруглённые плашки" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">23</span>
+          <span class="card__name">Material 3 / скруглённые плашки</span>
+          <a class="card__open" href="v23.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v24.html" target="_blank" rel="noopener">
+          <iframe src="v24.html" loading="lazy" title="Бумага / газетная типографика" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">24</span>
+          <span class="card__name">Бумага / газетная типографика</span>
+          <a class="card__open" href="v24.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v25.html" target="_blank" rel="noopener">
+          <iframe src="v25.html" loading="lazy" title="Изумруд / месяц вертикально сбоку" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">25</span>
+          <span class="card__name">Изумруд / месяц вертикально сбоку</span>
+          <a class="card__open" href="v25.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v26.html" target="_blank" rel="noopener">
+          <iframe src="v26.html" loading="lazy" title="Сине-серый / лента дней вместо сетки" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">26</span>
+          <span class="card__name">Сине-серый / лента дней вместо сетки</span>
+          <a class="card__open" href="v26.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v27.html" target="_blank" rel="noopener">
+          <iframe src="v27.html" loading="lazy" title="Высокий контраст / крупная доступная сетка" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">27</span>
+          <span class="card__name">Высокий контраст / крупная доступная сетка</span>
+          <a class="card__open" href="v27.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v28.html" target="_blank" rel="noopener">
+          <iframe src="v28.html" loading="lazy" title="Закат / градиентная шапка и карточка-сетка" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">28</span>
+          <span class="card__name">Закат / градиентная шапка и карточка-сетка</span>
+          <a class="card__open" href="v28.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v29.html" target="_blank" rel="noopener">
+          <iframe src="v29.html" loading="lazy" title="Сталь / плотная сетка с номерами недель" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">29</span>
+          <span class="card__name">Сталь / плотная сетка с номерами недель</span>
+          <a class="card__open" href="v29.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="card__frame" href="v30.html" target="_blank" rel="noopener">
+          <iframe src="v30.html" loading="lazy" title="Королевский / тёмно-синий с золотом" tabindex="-1" scrolling="no"></iframe>
+          <span class="card__shield"></span>
+        </a>
+        <div class="card__meta">
+          <span class="card__num">30</span>
+          <span class="card__name">Королевский / тёмно-синий с золотом</span>
+          <a class="card__open" href="v30.html" target="_blank" rel="noopener">Открыть</a>
+        </div>
+      </article>
+  </main>
+  <footer>
+    <p>Дополнительно: <a href="legacy-2026-07.html" target="_blank" rel="noopener">галерея из прежнего проекта</a> — 20 направлений, июль 2026, без перехода к месяцу.</p>
+    <p><a href="../">К приложению «Секретарь»</a></p>
+  </footer>
+</body>
+</html>

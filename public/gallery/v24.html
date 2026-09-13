@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>24. Бумага / газетная типографика</title>
+<style>
+  /* Вариант 24 — газетная вёрстка: засечки, тонкие линейки, бежевая бумага */
+  :root{
+    --paper:#f4efe4; --paper2:#ebe3d3; --ink:#1f1b16; --dim:#8a7f6d;
+    --rule:#c9bda6; --accent:#8c2f22;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);overflow-x:hidden;
+    font-family:Georgia,"Times New Roman",serif}
+  .wrap{max-width:430px;margin:0 auto;padding:22px 18px 40px}
+  /* Масштаб газеты */
+  .masthead{border-top:3px double var(--ink);border-bottom:1px solid var(--ink);padding:6px 0;
+    display:flex;justify-content:space-between;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);font-family:Georgia,serif}
+  .head{width:100%;background:none;border:0;padding:16px 0 12px;cursor:pointer;color:inherit;font-family:inherit;display:block;text-align:center}
+  .head .m{font-size:40px;font-weight:400;font-style:italic;letter-spacing:-.01em;line-height:1}
+  .head .y{font-size:15px;letter-spacing:.34em;margin-top:9px;color:var(--dim)}
+  .head .note{font-size:11px;font-style:italic;color:var(--accent);margin-top:10px}
+  .dbl{border-top:1px solid var(--ink);border-bottom:3px double var(--ink);height:4px;margin-bottom:14px}
+  .wd{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:2px}
+  .wd div{text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim)}
+  .wd div:nth-child(n+6){color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .cell{border-bottom:1px solid var(--rule);border-right:1px solid var(--rule);min-height:54px;
+    padding:5px 4px 4px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between}
+  .cell:nth-child(7n){border-right:0}
+  .num{font-size:17px;line-height:1}
+  .cell.out .num{color:#c4b9a4}
+  .cell.today{background:var(--paper2)}
+  .cell.today .num{font-weight:700;text-decoration:underline;text-underline-offset:3px;color:var(--accent)}
+  .tk{font-size:10px;font-style:italic;color:var(--dim);letter-spacing:.02em;align-self:flex-end}
+  .cell.today .tk{color:var(--accent)}
+  .col{margin-top:18px;border-top:1px solid var(--ink);padding-top:10px;
+    column-count:2;column-gap:16px;column-rule:1px solid var(--rule);font-size:12px;line-height:1.6;color:var(--dim)}
+  .col b{color:var(--ink);font-style:italic}
+  .tbtn{margin-top:16px;width:100%;background:none;border:1px solid var(--ink);padding:12px;
+    font-family:inherit;font-size:14px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);cursor:pointer}
+  /* Модалка */
+  .ovl{position:fixed;inset:0;background:rgba(31,27,22,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:9}
+  .ovl.on{display:flex}
+  .dlg{width:100%;max-width:380px;background:var(--paper);border:1px solid var(--ink);
+    box-shadow:6px 6px 0 rgba(31,27,22,.25);padding:18px}
+  .dlg h2{margin:0;font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);text-align:center;font-weight:400}
+  .ynav{display:flex;align-items:center;justify-content:space-between;margin:12px 0 4px;
+    border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:8px 0}
+  .ynav b{font-size:22px;font-style:italic;font-weight:400;letter-spacing:.1em}
+  .ynav button{border:0;background:none;font-family:inherit;font-size:22px;color:var(--ink);width:40px;cursor:pointer}
+  .mgrid{display:grid;grid-template-columns:repeat(2,1fr)}
+  .mgrid button{border:0;border-bottom:1px dotted var(--rule);background:none;font-family:inherit;
+    font-size:15px;padding:11px 6px;text-align:left;color:var(--ink);cursor:pointer}
+  .mgrid button:nth-child(odd){border-right:1px solid var(--rule);padding-left:2px}
+  .mgrid button.cur{font-style:italic;color:var(--accent);font-weight:700}
+  .cancel{margin-top:14px;width:100%;background:var(--ink);color:var(--paper);border:0;padding:12px;
+    font-family:inherit;font-size:12px;letter-spacing:.2em;text-transform:uppercase;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead"><span>Секретарь</span><span>Ежемесячник</span></div>
+  <button class="head" id="head" aria-haspopup="dialog">
+    <div class="m" id="hMonth"></div>
+    <div class="y" id="hYear"></div>
+    <div class="note">— выбрать другой месяц —</div>
+  </button>
+  <div class="dbl"></div>
+  <div class="wd" id="wd"></div>
+  <div class="grid" id="grid"></div>
+  <div class="col" id="col"></div>
+  <button class="tbtn" id="tbtn">Сегодня</button>
+</div>
+
+<div class="ovl" id="ovl" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="dlg">
+    <h2>Оглавление года</h2>
+    <div class="ynav">
+      <button id="prevY" aria-label="Предыдущий год">‹</button>
+      <b id="yLbl"></b>
+      <button id="nextY" aria-label="Следующий год">›</button>
+    </div>
+    <div class="mgrid" id="mgrid"></div>
+    <button class="cancel" id="cancel">Отмена</button>
+  </div>
+</div>
+
+<script>
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const WD=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const today=new Date();
+  let vy=today.getFullYear(), vm=today.getMonth(), pickY=vy;
+
+  function rnd(y,m,d){const x=Math.sin((y*12+m)*11.9+d*5.19)*10000;return x-Math.floor(x);}
+  function tasks(y,m,d){const r=rnd(y,m,d);return r<.5?0:1+Math.floor(r*10)%4;}
+
+  document.getElementById('wd').innerHTML=WD.map(d=>'<div>'+d+'</div>').join('');
+
+  function draw(){
+    document.getElementById('hMonth').textContent=MONTHS[vm];
+    document.getElementById('hYear').textContent=vy;
+    const off=(new Date(vy,vm,1).getDay()+6)%7;
+    const dim=new Date(vy,vm+1,0).getDate(), pdim=new Date(vy,vm,0).getDate();
+    let html='',total=0,busiest=0,bd=1;
+    for(let i=off-1;i>=0;i--) html+='<div class="cell out"><span class="num">'+(pdim-i)+'</span></div>';
+    for(let d=1;d<=dim;d++){
+      const t=tasks(vy,vm,d); total+=t; if(t>busiest){busiest=t;bd=d;}
+      const isT=(d===today.getDate()&&vm===today.getMonth()&&vy===today.getFullYear());
+      html+='<div class="cell'+(isT?' today':'')+'"><span class="num">'+d+'</span>'+
+            (t?'<span class="tk">'+t+' дел.</span>':'<span class="tk">&nbsp;</span>')+'</div>';
+    }
+    const rest=(7-((off+dim)%7))%7;
+    for(let d=1;d<=rest;d++) html+='<div class="cell out"><span class="num">'+d+'</span></div>';
+    document.getElementById('grid').innerHTML=html;
+    document.getElementById('col').innerHTML=
+      '<b>Итого за месяц.</b> Запланировано '+total+' дел на '+dim+' дней. '+
+      '<b>Самый плотный день</b> — '+bd+' '+MONTHS[vm].toLowerCase()+', дел: '+busiest+'. '+
+      'Сегодняшняя дата отмечена в таблице подчёркиванием.';
+  }
+
+  function drawMonths(){
+    document.getElementById('yLbl').textContent=pickY;
+    document.getElementById('mgrid').innerHTML=MONTHS.map((m,i)=>
+      '<button data-m="'+i+'" class="'+(i===vm&&pickY===vy?'cur':'')+'">'+m+'</button>').join('');
+  }
+
+  const ovl=document.getElementById('ovl');
+  const open=()=>{pickY=vy;drawMonths();ovl.classList.add('on');};
+  const close=()=>ovl.classList.remove('on');
+
+  document.getElementById('head').addEventListener('click',open);
+  document.getElementById('cancel').addEventListener('click',close);
+  ovl.addEventListener('click',e=>{if(e.target===ovl)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ovl.classList.contains('on'))close();});
+  document.getElementById('prevY').addEventListener('click',()=>{pickY--;drawMonths();});
+  document.getElementById('nextY').addEventListener('click',()=>{pickY++;drawMonths();});
+  document.getElementById('mgrid').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-m]');if(!b)return;
+    vm=+b.dataset.m;vy=pickY;draw();close();
+  });
+  document.getElementById('tbtn').addEventListener('click',()=>{vy=today.getFullYear();vm=today.getMonth();draw();});
+
+  draw();
+</script>
+</body>
+</html>

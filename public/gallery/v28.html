@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>28. Закат / градиентная шапка и карточка-сетка</title>
+<style>
+  /* Вариант 28 — градиентная шапка со скруглением снизу, карточка сетки наезжает на неё */
+  :root{
+    --bg:#fff6f1; --card:#fff; --ink:#3a2230; --dim:#a2818f; --line:#f6e2e0;
+    --g1:#ff8a4c; --g2:#ff5f8d; --g3:#c74ba6; --accent:#ef5f7a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);overflow-x:hidden;
+    font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  .wrap{max-width:430px;margin:0 auto;padding-bottom:40px}
+  /* Градиентная шапка */
+  .hero{background:linear-gradient(135deg,var(--g1) 0%,var(--g2) 55%,var(--g3) 100%);
+    border-radius:0 0 34px 34px;padding:26px 22px 64px;color:#fff;position:relative}
+  .hero .top{display:flex;justify-content:space-between;align-items:center;font-size:12px;
+    letter-spacing:.16em;text-transform:uppercase;opacity:.85}
+  .hero button.head{margin-top:16px;background:none;border:0;padding:0;color:#fff;text-align:left;cursor:pointer;font-family:inherit;display:block}
+  .hero .m{font-size:36px;font-weight:700;line-height:1.05;letter-spacing:-.5px}
+  .hero .y{font-size:17px;font-weight:400;opacity:.9;margin-top:4px;display:flex;align-items:center;gap:7px}
+  .hero .pill{font-size:11px;background:rgba(255,255,255,.24);border-radius:999px;padding:4px 10px;letter-spacing:.04em}
+  /* Карточка с сеткой наезжает на шапку */
+  .card{margin:-44px 14px 0;background:var(--card);border-radius:24px;padding:16px 12px 18px;
+    box-shadow:0 12px 30px rgba(199,75,166,.16);position:relative}
+  .wd{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px}
+  .wd div{text-align:center;font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  .cell{aspect-ratio:1/1.06;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;font-size:14px;font-weight:600;color:var(--ink)}
+  .cell.out{color:#e0cbd3;font-weight:500}
+  .cell.has{background:#fff1ec}
+  .cell.today{background:linear-gradient(135deg,var(--g1),var(--g2));color:#fff;font-weight:800;
+    box-shadow:0 6px 14px rgba(255,95,141,.42)}
+  .dots{display:flex;gap:3px;height:5px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+  .cell.today .dots i{background:rgba(255,255,255,.95)}
+  .summary{margin:16px 14px 0;display:flex;gap:10px}
+  .sbox{flex:1;background:var(--card);border-radius:18px;padding:14px;box-shadow:0 4px 14px rgba(199,75,166,.08)}
+  .sbox .v{font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--g1),var(--g3));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sbox .k{font-size:11px;color:var(--dim);margin-top:3px}
+  .tbtn{display:block;margin:16px 14px 0;width:calc(100% - 28px);border:0;border-radius:16px;
+    background:linear-gradient(135deg,var(--g1),var(--g2));color:#fff;padding:16px;font-size:15px;font-weight:700;
+    cursor:pointer;font-family:inherit;box-shadow:0 8px 18px rgba(255,95,141,.32)}
+  /* Модалка */
+  .ovl{position:fixed;inset:0;background:rgba(58,34,48,.45);backdrop-filter:blur(3px);display:none;
+    align-items:flex-end;justify-content:center;z-index:9}
+  .ovl.on{display:flex}
+  .sheet{width:100%;max-width:430px;background:var(--card);border-radius:28px 28px 0 0;
+    padding:20px 18px calc(22px + env(safe-area-inset-bottom))}
+  .grabber{width:42px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 16px}
+  .ynav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .ynav b{font-size:21px;font-weight:700}
+  .ynav button{width:42px;height:42px;border-radius:50%;border:0;background:#fff1ec;color:var(--accent);font-size:19px;cursor:pointer}
+  .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .mgrid button{border:0;border-radius:14px;background:#fdf3f0;padding:14px 2px;font-size:13px;font-weight:600;
+    color:var(--ink);cursor:pointer;font-family:inherit}
+  .mgrid button.cur{background:linear-gradient(135deg,var(--g1),var(--g2));color:#fff}
+  .cancel{margin-top:14px;width:100%;padding:14px;border-radius:14px;border:0;background:none;
+    color:var(--dim);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="top"><span>Секретарь</span><span id="wdToday"></span></div>
+    <button class="head" id="head" aria-haspopup="dialog">
+      <div class="m" id="hMonth"></div>
+      <div class="y"><span id="hYear"></span><span class="pill">выбрать месяц ▾</span></div>
+    </button>
+  </div>
+  <div class="card">
+    <div class="wd" id="wd"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="summary">
+    <div class="sbox"><div class="v" id="s1"></div><div class="k">задач в месяце</div></div>
+    <div class="sbox"><div class="v" id="s2"></div><div class="k">дней занято</div></div>
+  </div>
+  <button class="tbtn" id="tbtn">Сегодня</button>
+</div>
+
+<div class="ovl" id="ovl" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="sheet">
+    <div class="grabber"></div>
+    <div class="ynav">
+      <button id="prevY" aria-label="Предыдущий год">‹</button>
+      <b id="yLbl"></b>
+      <button id="nextY" aria-label="Следующий год">›</button>
+    </div>
+    <div class="mgrid" id="mgrid"></div>
+    <button class="cancel" id="cancel">Отмена</button>
+  </div>
+</div>
+
+<script>
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MSHORT=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const WD=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const WDFULL=['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'];
+  const today=new Date();
+  let vy=today.getFullYear(), vm=today.getMonth(), pickY=vy;
+
+  function rnd(y,m,d){const x=Math.sin((y*12+m)*27.3+d*7.77)*10000;return x-Math.floor(x);}
+  function tasks(y,m,d){const r=rnd(y,m,d);return r<.46?0:1+Math.floor(r*10)%3;}
+
+  document.getElementById('wd').innerHTML=WD.map(d=>'<div>'+d+'</div>').join('');
+  document.getElementById('wdToday').textContent=WDFULL[(today.getDay()+6)%7]+', '+today.getDate();
+
+  function draw(){
+    document.getElementById('hMonth').textContent=MONTHS[vm];
+    document.getElementById('hYear').textContent=vy;
+    const off=(new Date(vy,vm,1).getDay()+6)%7;
+    const dim=new Date(vy,vm+1,0).getDate(), pdim=new Date(vy,vm,0).getDate();
+    let html='',total=0,busy=0;
+    for(let i=off-1;i>=0;i--) html+='<div class="cell out">'+(pdim-i)+'<div class="dots"></div></div>';
+    for(let d=1;d<=dim;d++){
+      const t=tasks(vy,vm,d); total+=t; if(t)busy++;
+      const isT=(d===today.getDate()&&vm===today.getMonth()&&vy===today.getFullYear());
+      html+='<div class="cell'+(isT?' today':(t?' has':''))+'">'+d+
+            '<div class="dots">'+'<i></i>'.repeat(t)+'</div></div>';
+    }
+    const rest=(7-((off+dim)%7))%7;
+    for(let d=1;d<=rest;d++) html+='<div class="cell out">'+d+'<div class="dots"></div></div>';
+    document.getElementById('grid').innerHTML=html;
+    document.getElementById('s1').textContent=total;
+    document.getElementById('s2').textContent=busy;
+  }
+
+  function drawMonths(){
+    document.getElementById('yLbl').textContent=pickY;
+    document.getElementById('mgrid').innerHTML=MSHORT.map((m,i)=>
+      '<button data-m="'+i+'" class="'+(i===vm&&pickY===vy?'cur':'')+'">'+m+'</button>').join('');
+  }
+
+  const ovl=document.getElementById('ovl');
+  const open=()=>{pickY=vy;drawMonths();ovl.classList.add('on');};
+  const close=()=>ovl.classList.remove('on');
+
+  document.getElementById('head').addEventListener('click',open);
+  document.getElementById('cancel').addEventListener('click',close);
+  ovl.addEventListener('click',e=>{if(e.target===ovl)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ovl.classList.contains('on'))close();});
+  document.getElementById('prevY').addEventListener('click',()=>{pickY--;drawMonths();});
+  document.getElementById('nextY').addEventListener('click',()=>{pickY++;drawMonths();});
+  document.getElementById('mgrid').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-m]');if(!b)return;
+    vm=+b.dataset.m;vy=pickY;draw();close();
+  });
+  document.getElementById('tbtn').addEventListener('click',()=>{vy=today.getFullYear();vm=today.getMonth();draw();});
+
+  draw();
+</script>
+</body>
+</html>

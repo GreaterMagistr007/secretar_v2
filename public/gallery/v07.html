@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>07. Графит / двухстрочная шапка</title>
+<style>
+  /* Вариант 07: графитовая палитра, двухстрочная шапка и липкая строка дней недели */
+  :root{
+    --bg:#ffffff;
+    --surface:#ffffff;
+    --panel:#f4f4f5;
+    --line:#e2e2e5;
+    --text:#26272b;
+    --muted:#8b8d94;
+    --accent:#3f4045;
+    --mark:#5c5d63;
+    --weekend:#a5a7ad;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);
+    font:15px/1.4 "SF Pro Text",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  .screen{max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;padding-bottom:26px;}
+
+  /* Двухстрочная шапка: месяц и год разными стилями */
+  .head{
+    padding:calc(18px + env(safe-area-inset-top)) 20px 12px;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  }
+  .title-btn{
+    border:0;background:transparent;padding:0;cursor:pointer;text-align:left;
+    color:inherit;font-family:inherit;
+  }
+  .line-1{
+    display:block;font-size:28px;font-weight:800;line-height:1;
+    text-transform:uppercase;letter-spacing:-1px;
+  }
+  .line-2{
+    display:block;margin-top:6px;font-size:13px;font-weight:400;
+    letter-spacing:6px;color:var(--muted);
+  }
+  .head-tools{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+  .nav-pair{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .nav{
+    width:34px;height:32px;border:0;background:var(--surface);color:var(--text);
+    cursor:pointer;font-size:14px;line-height:1;
+  }
+  .nav + .nav{border-left:1px solid var(--line);}
+  .today-btn{
+    border:0;background:transparent;color:var(--text);font:inherit;font-size:12px;
+    font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;padding:0;
+  }
+
+  /* Липкая строка дней недели */
+  .weekdays{
+    position:sticky;top:0;z-index:5;background:var(--bg);
+    display:grid;grid-template-columns:repeat(7,1fr);
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    padding:9px 12px;
+  }
+  .weekdays span{text-align:center;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);}
+  .weekdays span.we{color:#c3c5ca;}
+
+  .days{display:grid;grid-template-columns:repeat(7,1fr);padding:6px 12px 0;gap:1px;}
+  .cell{
+    position:relative;aspect-ratio:1/1.16;padding:6px 4px 4px 8px;
+    display:flex;flex-direction:column;align-items:flex-start;gap:5px;font-size:14px;
+    border-bottom:1px solid #f0f0f2;
+  }
+  .cell.out{color:#d0d1d5;}
+  .cell.we:not(.out){color:var(--weekend);}
+  .cell.today .num{
+    background:var(--accent);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;
+  }
+  .num{line-height:1.2;}
+  .ticks{display:flex;flex-direction:column;gap:3px;padding-left:1px;}
+  .tick{width:14px;height:2px;border-radius:1px;background:var(--mark);}
+  .tick.soft{background:#bfc0c5;}
+  .cell.out .tick{background:#e6e6e9;}
+
+  .foot{margin:16px 20px 0;font-size:12px;color:var(--muted);letter-spacing:.2px;}
+
+  /* Модалка */
+  .overlay{position:fixed;inset:0;background:rgba(38,39,43,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:20;}
+  .overlay.open{display:flex;}
+  .dialog{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 18px 46px rgba(38,39,43,.3);}
+  .d-title{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+  .y-row{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:14px;}
+  .y-btn{width:30px;height:30px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;}
+  .y-val{font-size:19px;font-weight:800;letter-spacing:2px;}
+  .months{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
+  .pick{padding:14px 2px;border:0;background:var(--surface);color:var(--text);font:inherit;font-size:12px;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;}
+  .pick.now{color:var(--accent);font-weight:700;text-decoration:underline;}
+  .pick.active{background:var(--accent);color:#fff;font-weight:700;}
+  .ghost{width:100%;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font:inherit;font-size:12px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="head">
+    <button class="title-btn" id="titleBtn" type="button">
+      <span class="line-1" id="titleMonth">—</span>
+      <span class="line-2" id="titleYear">—</span>
+    </button>
+    <div class="head-tools">
+      <div class="nav-pair">
+        <button class="nav" id="prev" type="button" aria-label="Предыдущий месяц">&#8249;</button>
+        <button class="nav" id="next" type="button" aria-label="Следующий месяц">&#8250;</button>
+      </div>
+      <button class="today-btn" id="todayBtn" type="button">Сегодня</button>
+    </div>
+  </div>
+
+  <div class="weekdays" id="weekdays"></div>
+  <div class="days" id="days"></div>
+
+  <div class="foot">Штрихи слева в ячейке — задачи дня; бледные штрихи означают выполненные.</div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+    <div class="d-title">Перейти к месяцу</div>
+    <div class="y-row">
+      <button class="y-btn" id="yearPrev" type="button" aria-label="Предыдущий год">&#8249;</button>
+      <span class="y-val" id="yearVal">—</span>
+      <button class="y-btn" id="yearNext" type="button" aria-label="Следующий год">&#8250;</button>
+    </div>
+    <div class="months" id="months"></div>
+    <button class="ghost" id="cancelBtn" type="button">Отмена</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var SHORT  = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  var WD = ['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'];
+
+  var today = new Date();
+  var view = { y: today.getFullYear(), m: today.getMonth() };
+  var pickerYear = view.y;
+
+  // Детерминированные демо-задачи
+  function tasksFor(y, m, d){
+    var h = Math.abs((y * 17 + (m + 1) * 401 + d * 2777) * 69621 % 100);
+    if (h < 44) return 0;
+    if (h < 69) return 1;
+    if (h < 88) return 2;
+    return 3;
+  }
+  function isDone(d, i){ return (d * 2 + i) % 5 === 0; }
+
+  function buildCells(y, m){
+    var offset = (new Date(y, m, 1).getDay() + 6) % 7;
+    var dim = new Date(y, m + 1, 0).getDate();
+    var prevDim = new Date(y, m, 0).getDate();
+    var cells = [], i, d;
+    for (i = offset - 1; i >= 0; i--) cells.push({ d: prevDim - i, out: true });
+    for (d = 1; d <= dim; d++) cells.push({ d: d, out: false });
+    d = 1;
+    while (cells.length % 7 !== 0) cells.push({ d: d++, out: true });
+    return cells;
+  }
+
+  var daysEl = document.getElementById('days');
+  var wdEl = document.getElementById('weekdays');
+
+  WD.forEach(function(w, i){
+    var s = document.createElement('span');
+    s.textContent = w;
+    if (i > 4) s.className = 'we';
+    wdEl.appendChild(s);
+  });
+
+  function render(){
+    document.getElementById('titleMonth').textContent = MONTHS[view.m];
+    document.getElementById('titleYear').textContent = view.y;
+    daysEl.innerHTML = '';
+    buildCells(view.y, view.m).forEach(function(c, idx){
+      var el = document.createElement('div');
+      var cls = 'cell';
+      if (c.out) cls += ' out';
+      if (idx % 7 > 4) cls += ' we';
+      var isToday = !c.out && c.d === today.getDate() && view.m === today.getMonth() && view.y === today.getFullYear();
+      if (isToday) cls += ' today';
+      el.className = cls;
+
+      var num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = c.d;
+      el.appendChild(num);
+
+      var ticks = document.createElement('div');
+      ticks.className = 'ticks';
+      var n = c.out ? 0 : tasksFor(view.y, view.m, c.d);
+      for (var k = 0; k < n; k++) {
+        var t = document.createElement('i');
+        t.className = 'tick' + (isDone(c.d, k) ? ' soft' : '');
+        ticks.appendChild(t);
+      }
+      el.appendChild(ticks);
+      daysEl.appendChild(el);
+    });
+  }
+
+  function shift(delta){
+    var m = view.m + delta;
+    view.y += Math.floor(m / 12);
+    view.m = ((m % 12) + 12) % 12;
+    render();
+  }
+
+  document.getElementById('prev').addEventListener('click', function(){ shift(-1); });
+  document.getElementById('next').addEventListener('click', function(){ shift(1); });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    view.y = today.getFullYear(); view.m = today.getMonth(); render();
+  });
+
+  /* Модалка выбора месяца */
+  var overlay = document.getElementById('overlay');
+  var monthsEl = document.getElementById('months');
+
+  function renderPicker(){
+    document.getElementById('yearVal').textContent = pickerYear;
+    monthsEl.innerHTML = '';
+    MONTHS.forEach(function(name, i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = SHORT[i];
+      var cls = 'pick';
+      if (i === today.getMonth() && pickerYear === today.getFullYear()) cls += ' now';
+      if (i === view.m && pickerYear === view.y) cls += ' active';
+      b.className = cls;
+      b.addEventListener('click', function(){
+        view.y = pickerYear; view.m = i; closeModal(); render();
+      });
+      monthsEl.appendChild(b);
+    });
+  }
+
+  function openModal(){ pickerYear = view.y; renderPicker(); overlay.classList.add('open'); }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  document.getElementById('titleBtn').addEventListener('click', openModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('yearPrev').addEventListener('click', function(){ pickerYear--; renderPicker(); });
+  document.getElementById('yearNext').addEventListener('click', function(){ pickerYear++; renderPicker(); });
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

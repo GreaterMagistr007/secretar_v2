@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>20. Неон / тёмная тема со свечением</title>
+<style>
+  :root{
+    --bg:#0a0c14; --panel:#12151f; --panel2:#161a26; --ink:#e8ecf8; --muted:#6f7893;
+    --neon:#37f5c5; --neon2:#b46cff; --neon3:#ff4f9a; --line:#222838;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  .phone{max-width:420px;margin:0 auto;min-height:100vh;padding:0 14px 30px;position:relative}
+  .glowbg{position:fixed;inset:0;z-index:-1;background:
+    radial-gradient(420px 260px at 15% -5%,rgba(55,245,197,.14),transparent 70%),
+    radial-gradient(360px 260px at 95% 12%,rgba(180,108,255,.16),transparent 70%),
+    var(--bg);}
+
+  .hdr{display:flex;align-items:center;gap:12px;padding:22px 2px 16px}
+  .month-btn{
+    background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;flex:1;
+  }
+  .month-btn .m{
+    display:block;font-size:25px;font-weight:800;letter-spacing:-.4px;line-height:1.05;
+    color:#fff;text-shadow:0 0 18px rgba(55,245,197,.45);
+  }
+  .month-btn .y{
+    display:block;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--neon);margin-top:5px;
+  }
+  .month-btn .m em{font-style:normal;font-size:14px;color:var(--neon);margin-left:6px;vertical-align:middle}
+  .today-btn{
+    border:1px solid rgba(55,245,197,.45);background:rgba(55,245,197,.08);color:var(--neon);
+    border-radius:11px;padding:9px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;
+    box-shadow:0 0 16px rgba(55,245,197,.18);
+  }
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:14px 10px 16px}
+  .wd{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px}
+  .wd span{text-align:center;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cell{
+    aspect-ratio:1;border:1px solid transparent;background:var(--panel2);border-radius:12px;padding:0;
+    font:inherit;color:var(--ink);cursor:pointer;position:relative;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  }
+  .cell .n{font-size:14px;font-weight:600;line-height:1}
+  .cell.out{background:transparent}
+  .cell.out .n{color:#39405a}
+  .cell.today{
+    border-color:var(--neon);background:rgba(55,245,197,.12);
+    box-shadow:0 0 0 1px rgba(55,245,197,.35),0 0 20px rgba(55,245,197,.35);
+  }
+  .cell.today .n{color:var(--neon);font-weight:800}
+  .cell.sel{border-color:var(--neon2);box-shadow:0 0 16px rgba(180,108,255,.35)}
+  .cell.sel.today{border-color:var(--neon)}
+  .glow{display:flex;gap:4px;height:6px;align-items:center}
+  .glow i{
+    width:6px;height:6px;border-radius:50%;display:block;background:var(--neon);
+    box-shadow:0 0 7px var(--neon),0 0 14px rgba(55,245,197,.6);
+  }
+  .glow i.v{background:var(--neon2);box-shadow:0 0 7px var(--neon2),0 0 14px rgba(180,108,255,.6)}
+  .glow i.p{background:var(--neon3);box-shadow:0 0 7px var(--neon3),0 0 14px rgba(255,79,154,.6)}
+  .cell.out .glow i{background:#2b3246;box-shadow:none}
+
+  .legend{display:flex;gap:14px;margin:16px 4px 0;font-size:11px;color:var(--muted);font-weight:600}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:7px;height:7px;border-radius:50%;display:block}
+  .legend i.a{background:var(--neon);box-shadow:0 0 8px var(--neon)}
+  .legend i.b{background:var(--neon2);box-shadow:0 0 8px var(--neon2)}
+  .legend i.c{background:var(--neon3);box-shadow:0 0 8px var(--neon3)}
+
+  .info{
+    margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;
+    display:flex;align-items:center;gap:14px;
+  }
+  .info .num{
+    font-size:30px;font-weight:800;line-height:1;color:var(--neon2);text-shadow:0 0 20px rgba(180,108,255,.55);
+  }
+  .info .col b{display:block;font-size:13px;font-weight:700}
+  .info .col span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+
+  .overlay{position:fixed;inset:0;background:rgba(5,7,13,.78);display:none;align-items:center;justify-content:center;padding:18px;z-index:30}
+  .overlay.open{display:flex}
+  .dialog{
+    width:100%;max-width:352px;background:var(--panel);border:1px solid rgba(55,245,197,.28);border-radius:20px;
+    padding:18px;box-shadow:0 0 50px rgba(55,245,197,.16),0 24px 60px rgba(0,0,0,.6);
+  }
+  .dialog h3{margin:0 0 14px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-align:center;font-weight:700}
+  .year{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .year b{font-size:20px;font-weight:800;letter-spacing:2px;color:#fff;text-shadow:0 0 14px rgba(55,245,197,.45)}
+  .nav{
+    width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--panel2);
+    color:var(--neon);font-size:17px;cursor:pointer;
+  }
+  .months{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .months button{
+    padding:13px 2px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);
+    font:inherit;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;
+  }
+  .months button.cur{
+    background:rgba(55,245,197,.14);border-color:var(--neon);color:var(--neon);
+    box-shadow:0 0 18px rgba(55,245,197,.3);
+  }
+  .months button.now{border-color:var(--neon2);color:var(--neon2)}
+  .cancel{
+    width:100%;margin-top:14px;padding:13px;border-radius:13px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--muted);font:inherit;font-weight:700;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="glowbg"></div>
+<div class="phone">
+  <header class="hdr">
+    <button class="month-btn" id="monthBtn" aria-haspopup="dialog">
+      <span class="m" id="mName">—<em>▾</em></span>
+      <span class="y" id="mYear"></span>
+    </button>
+    <button class="today-btn" id="todayBtn">Сегодня</button>
+  </header>
+
+  <div class="panel">
+    <div class="wd" id="wd"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="a"></i>работа</span>
+    <span><i class="b"></i>личное</span>
+    <span><i class="c"></i>срочное</span>
+  </div>
+
+  <div class="info">
+    <div class="num" id="iNum">0</div>
+    <div class="col"><b id="iTitle">—</b><span id="iSub"></span></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="dialog">
+    <h3>Перейти к месяцу</h3>
+    <div class="year">
+      <button class="nav" id="prevYear" aria-label="Предыдущий год">‹</button>
+      <b id="pickYear">2026</b>
+      <button class="nav" id="nextYear" aria-label="Следующий год">›</button>
+    </div>
+    <div class="months" id="months"></div>
+    <button class="cancel" id="cancelBtn">Отмена</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var MONTHS=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  var SHORT=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  var GEN=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  var WD=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+  var KINDS=["","v","p"]; // работа, личное, срочное
+  var KIND_NAMES=["работа","личное","срочное"];
+
+  function hash(y,m,d,salt){
+    var x=((y*12+m)*32+d)*79+(salt||0);
+    x=(x*2654435761)%4294967296; x=x^(x>>>4);
+    return Math.abs(x)%100003;
+  }
+  function count(y,m,d){ var h=hash(y,m,d,1); return (h%100<40)?0:1+(h%3); }
+  function kindOf(y,m,d,i){ return hash(y,m,d,30+i*3)%3; }
+
+  var today=new Date();
+  var todayKey=today.getFullYear()+"-"+today.getMonth()+"-"+today.getDate();
+  var viewY=today.getFullYear(), viewM=today.getMonth();
+  var selY=viewY, selM=viewM, selD=today.getDate(), pickYear=viewY;
+
+  var $=function(id){return document.getElementById(id);};
+  var grid=$("grid"), overlay=$("overlay");
+
+  (function(){
+    var h="";
+    for(var i=0;i<7;i++) h+="<span>"+WD[i]+"</span>";
+    $("wd").innerHTML=h;
+  })();
+
+  function render(){
+    $("mName").innerHTML=MONTHS[viewM]+"<em>▾</em>";
+    $("mYear").textContent=viewY;
+
+    var offset=(new Date(viewY,viewM,1).getDay()+6)%7;
+    var start=new Date(viewY,viewM,1-offset);
+    var days=new Date(viewY,viewM+1,0).getDate();
+    var cells=Math.ceil((offset+days)/7)*7;
+
+    grid.innerHTML="";
+    for(var i=0;i<cells;i++){
+      var d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+      var y=d.getFullYear(),m=d.getMonth(),n=d.getDate();
+      var out=m!==viewM, key=y+"-"+m+"-"+n, c=count(y,m,n);
+      var b=document.createElement("button");
+      b.type="button";
+      b.className="cell"+(out?" out":"")+(key===todayKey?" today":"")
+        +(y===selY&&m===selM&&n===selD?" sel":"");
+      var glow="";
+      for(var k=0;k<Math.min(c,3);k++) glow+='<i class="'+KINDS[kindOf(y,m,n,k)]+'"></i>';
+      b.innerHTML='<span class="n">'+n+'</span><span class="glow">'+glow+'</span>';
+      b.dataset.y=y; b.dataset.m=m; b.dataset.d=n;
+      grid.appendChild(b);
+    }
+    updateInfo();
+  }
+
+  function updateInfo(){
+    var c=count(selY,selM,selD);
+    $("iNum").textContent=c;
+    $("iTitle").textContent=selD+" "+GEN[selM]+" "+selY;
+    if(!c){ $("iSub").textContent="задач нет — свободный день"; return; }
+    var kinds=[];
+    for(var k=0;k<c;k++){
+      var name=KIND_NAMES[kindOf(selY,selM,selD,k)];
+      if(kinds.indexOf(name)<0) kinds.push(name);
+    }
+    $("iSub").textContent="категории: "+kinds.join(", ");
+  }
+
+  grid.addEventListener("click",function(e){
+    var b=e.target.closest(".cell");
+    if(!b) return;
+    selY=+b.dataset.y; selM=+b.dataset.m; selD=+b.dataset.d;
+    if(selM!==viewM||selY!==viewY){ viewY=selY; viewM=selM; }
+    render();
+  });
+
+  $("todayBtn").addEventListener("click",function(){
+    viewY=today.getFullYear(); viewM=today.getMonth();
+    selY=viewY; selM=viewM; selD=today.getDate(); render();
+  });
+
+  function renderMonths(){
+    $("pickYear").textContent=pickYear;
+    var h="";
+    for(var i=0;i<12;i++){
+      var cls="";
+      if(pickYear===viewY&&i===viewM) cls="cur";
+      else if(pickYear===today.getFullYear()&&i===today.getMonth()) cls="now";
+      h+='<button type="button" class="'+cls+'" data-m="'+i+'">'+SHORT[i]+'</button>';
+    }
+    $("months").innerHTML=h;
+  }
+  function open(){ pickYear=viewY; renderMonths(); overlay.classList.add("open"); }
+  function close(){ overlay.classList.remove("open"); }
+
+  $("monthBtn").addEventListener("click",open);
+  $("prevYear").addEventListener("click",function(){pickYear--;renderMonths();});
+  $("nextYear").addEventListener("click",function(){pickYear++;renderMonths();});
+  $("cancelBtn").addEventListener("click",close);
+  $("months").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-m]");
+    if(!b) return;
+    viewY=pickYear; viewM=+b.dataset.m; selY=viewY; selM=viewM;
+    selD=(viewY===today.getFullYear()&&viewM===today.getMonth())?today.getDate():1;
+    close(); render();
+  });
+  overlay.addEventListener("click",function(e){ if(e.target===overlay) close(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

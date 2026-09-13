@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>10. Фиолетовый блок / акцентная шапка</title>
+<style>
+  /* Вариант 10: фиолетовая палитра, контрастная шапка во всю ширину, белая сетка под ней */
+  :root{
+    --bg:#ffffff;
+    --brand:#5b21b6;
+    --brand-2:#7c3aed;
+    --line:#ece8f6;
+    --text:#241543;
+    --muted:#8f85a8;
+    --accent:#7c3aed;
+    --accent-soft:#f1ebfe;
+    --weekend:#b09bd8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);
+    font:15px/1.45 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  .screen{max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;padding-bottom:26px;}
+
+  /* Акцентная шапка */
+  .bar{
+    background:var(--brand);color:#fff;
+    padding:calc(14px + env(safe-area-inset-top)) 14px 18px;
+  }
+  .bar-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .bar-title{
+    border:0;background:transparent;padding:6px 8px;border-radius:10px;cursor:pointer;
+    color:#fff;font-family:inherit;display:flex;align-items:center;gap:8px;
+  }
+  .bar-title:active{background:rgba(255,255,255,.14);}
+  .b-m{font-size:21px;font-weight:700;letter-spacing:-0.2px;}
+  .b-c{font-size:11px;opacity:.85;}
+  .bar-nav{display:flex;gap:6px;}
+  .sq{
+    width:34px;height:34px;border-radius:10px;border:0;
+    background:rgba(255,255,255,.16);color:#fff;cursor:pointer;font-size:15px;line-height:1;
+  }
+  .bar-strip{
+    margin-top:14px;display:flex;align-items:center;justify-content:space-between;
+    background:rgba(255,255,255,.12);border-radius:12px;padding:9px 12px;
+  }
+  .strip-text{font-size:12px;color:rgba(255,255,255,.88);}
+  .today-btn{
+    border:0;border-radius:9px;background:#fff;color:var(--brand);
+    font:inherit;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;
+  }
+
+  .weekdays{
+    display:grid;grid-template-columns:repeat(7,1fr);
+    padding:12px 8px 8px;border-bottom:1px solid var(--line);
+  }
+  .weekdays span{text-align:center;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
+  .weekdays span.we{color:var(--weekend);}
+
+  .days{display:grid;grid-template-columns:repeat(7,1fr);padding:4px 8px 0;gap:2px;}
+  .cell{
+    position:relative;aspect-ratio:1/1.1;border-radius:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    font-size:15px;font-weight:500;
+  }
+  .cell.out{color:#d8d2e6;}
+  .cell.we:not(.out){color:var(--weekend);}
+  .cell.has{background:var(--accent-soft);}
+  .cell.today{background:var(--accent);color:#fff;font-weight:700;}
+  .counter{
+    min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+    background:var(--accent);color:#fff;font-size:10px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .cell.today .counter{background:#fff;color:var(--accent);}
+
+  .note{
+    margin:18px 16px 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;
+    font-size:12px;color:var(--muted);
+  }
+  .note b{color:var(--accent);}
+
+  /* Модалка */
+  .overlay{position:fixed;inset:0;background:rgba(36,21,67,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:20;}
+  .overlay.open{display:flex;}
+  .dialog{width:100%;max-width:370px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 22px 48px rgba(36,21,67,.35);}
+  .d-top{background:var(--brand);color:#fff;padding:16px;}
+  .d-title{font-size:15px;font-weight:700;margin-bottom:12px;}
+  .y-row{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.14);border-radius:10px;padding:6px 8px;}
+  .y-btn{width:30px;height:30px;border-radius:8px;border:0;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;}
+  .y-val{font-size:17px;font-weight:700;}
+  .months{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:16px;}
+  .pick{padding:13px 2px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .pick.now{border-color:var(--accent);color:var(--accent);}
+  .pick.active{background:var(--brand-2);border-color:var(--brand-2);color:#fff;}
+  .d-foot{padding:0 16px 16px;}
+  .ghost{width:100%;padding:12px;border-radius:10px;border:0;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:14px;font-weight:700;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="bar">
+    <div class="bar-row">
+      <button class="bar-title" id="titleBtn" type="button">
+        <span class="b-m" id="titleMonth">—</span>
+        <span class="b-c">&#9660;</span>
+      </button>
+      <div class="bar-nav">
+        <button class="sq" id="prev" type="button" aria-label="Предыдущий месяц">&#8249;</button>
+        <button class="sq" id="next" type="button" aria-label="Следующий месяц">&#8250;</button>
+      </div>
+    </div>
+    <div class="bar-strip">
+      <span class="strip-text" id="stripText">—</span>
+      <button class="today-btn" id="todayBtn" type="button">Сегодня</button>
+    </div>
+  </div>
+
+  <div class="weekdays" id="weekdays"></div>
+  <div class="days" id="days"></div>
+
+  <div class="note">Сиреневая заливка ячейки — день с задачами, <b>цифра</b> — сколько их запланировано.</div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+    <div class="d-top">
+      <div class="d-title">Перейти к месяцу</div>
+      <div class="y-row">
+        <button class="y-btn" id="yearPrev" type="button" aria-label="Предыдущий год">&#8249;</button>
+        <span class="y-val" id="yearVal">—</span>
+        <button class="y-btn" id="yearNext" type="button" aria-label="Следующий год">&#8250;</button>
+      </div>
+    </div>
+    <div class="months" id="months"></div>
+    <div class="d-foot"><button class="ghost" id="cancelBtn" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var SHORT  = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  var WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+  var today = new Date();
+  var view = { y: today.getFullYear(), m: today.getMonth() };
+  var pickerYear = view.y;
+
+  // Детерминированные демо-задачи
+  function tasksFor(y, m, d){
+    var h = Math.abs((y * 53 + (m + 1) * 307 + d * 911) * 214013 % 100);
+    if (h < 46) return 0;
+    if (h < 70) return 1;
+    if (h < 87) return 2;
+    if (h < 96) return 3;
+    return 4;
+  }
+
+  function buildCells(y, m){
+    var offset = (new Date(y, m, 1).getDay() + 6) % 7;
+    var dim = new Date(y, m + 1, 0).getDate();
+    var prevDim = new Date(y, m, 0).getDate();
+    var cells = [], i, d;
+    for (i = offset - 1; i >= 0; i--) cells.push({ d: prevDim - i, out: true });
+    for (d = 1; d <= dim; d++) cells.push({ d: d, out: false });
+    d = 1;
+    while (cells.length % 7 !== 0) cells.push({ d: d++, out: true });
+    return cells;
+  }
+
+  var daysEl = document.getElementById('days');
+  var wdEl = document.getElementById('weekdays');
+
+  WD.forEach(function(w, i){
+    var s = document.createElement('span');
+    s.textContent = w;
+    if (i > 4) s.className = 'we';
+    wdEl.appendChild(s);
+  });
+
+  function render(){
+    document.getElementById('titleMonth').textContent = MONTHS[view.m] + ' ' + view.y;
+    daysEl.innerHTML = '';
+    var total = 0;
+    buildCells(view.y, view.m).forEach(function(c, idx){
+      var el = document.createElement('div');
+      var cls = 'cell';
+      if (c.out) cls += ' out';
+      if (idx % 7 > 4) cls += ' we';
+      var n = c.out ? 0 : tasksFor(view.y, view.m, c.d);
+      total += n;
+      if (n > 0) cls += ' has';
+      var isToday = !c.out && c.d === today.getDate() && view.m === today.getMonth() && view.y === today.getFullYear();
+      if (isToday) cls += ' today';
+      el.className = cls;
+
+      var num = document.createElement('span');
+      num.textContent = c.d;
+      el.appendChild(num);
+
+      if (n > 0) {
+        var cnt = document.createElement('span');
+        cnt.className = 'counter';
+        cnt.textContent = n;
+        el.appendChild(cnt);
+      }
+      daysEl.appendChild(el);
+    });
+    document.getElementById('stripText').textContent = 'Задач в месяце: ' + total;
+  }
+
+  function shift(delta){
+    var m = view.m + delta;
+    view.y += Math.floor(m / 12);
+    view.m = ((m % 12) + 12) % 12;
+    render();
+  }
+
+  document.getElementById('prev').addEventListener('click', function(){ shift(-1); });
+  document.getElementById('next').addEventListener('click', function(){ shift(1); });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    view.y = today.getFullYear(); view.m = today.getMonth(); render();
+  });
+
+  /* Модалка выбора месяца */
+  var overlay = document.getElementById('overlay');
+  var monthsEl = document.getElementById('months');
+
+  function renderPicker(){
+    document.getElementById('yearVal').textContent = pickerYear;
+    monthsEl.innerHTML = '';
+    MONTHS.forEach(function(name, i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = SHORT[i];
+      var cls = 'pick';
+      if (i === today.getMonth() && pickerYear === today.getFullYear()) cls += ' now';
+      if (i === view.m && pickerYear === view.y) cls += ' active';
+      b.className = cls;
+      b.addEventListener('click', function(){
+        view.y = pickerYear; view.m = i; closeModal(); render();
+      });
+      monthsEl.appendChild(b);
+    });
+  }
+
+  function openModal(){ pickerYear = view.y; renderPicker(); overlay.classList.add('open'); }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  document.getElementById('titleBtn').addEventListener('click', openModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('yearPrev').addEventListener('click', function(){ pickerYear--; renderPicker(); });
+  document.getElementById('yearNext').addEventListener('click', function(){ pickerYear++; renderPicker(); });
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

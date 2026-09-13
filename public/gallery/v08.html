@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>08. Тихий минимализм / тонкие линии</title>
+<style>
+  /* Вариант 08: почти монохром, только месяц, сетка и тонкие линии, без кнопок */
+  :root{
+    --bg:#fbfbfa;
+    --ink:#161616;
+    --muted:#9b9b98;
+    --hair:#e8e8e5;
+    --mark:#161616;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:15px/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  .screen{max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;padding:0 22px calc(30px + env(safe-area-inset-bottom));}
+
+  .head{padding:calc(52px + env(safe-area-inset-top)) 0 30px;}
+  .title-btn{
+    border:0;background:transparent;padding:0;cursor:pointer;text-align:left;
+    color:inherit;font-family:inherit;display:block;
+  }
+  .m{display:block;font-size:22px;font-weight:400;letter-spacing:.4px;}
+  .y{display:block;font-size:22px;font-weight:400;color:var(--muted);letter-spacing:.4px;}
+  .rule{height:1px;background:var(--hair);margin-bottom:14px;}
+
+  .weekdays,.days{display:grid;grid-template-columns:repeat(7,1fr);}
+  .weekdays span{
+    text-align:center;font-size:10px;letter-spacing:1.4px;color:var(--muted);
+    padding-bottom:12px;text-transform:lowercase;
+  }
+  .days{row-gap:0;}
+  .cell{
+    position:relative;height:54px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    font-size:15px;font-weight:300;
+    border-top:1px solid var(--hair);
+  }
+  .cell.out{visibility:hidden;} /* дни соседних месяцев скрыты полностью */
+  .cell.today{font-weight:600;}
+  .cell.today::after{
+    content:"";position:absolute;left:50%;bottom:9px;transform:translateX(-50%);
+    width:20px;height:1px;background:var(--ink);
+  }
+  .mk{width:3px;height:3px;border-radius:50%;background:var(--mark);opacity:.75;}
+  .mk.two{width:11px;height:3px;border-radius:2px;}
+  .mk.many{width:17px;height:3px;border-radius:2px;}
+  .cell.today .mk{opacity:0;}
+
+  .caption{
+    margin-top:26px;padding-top:14px;border-top:1px solid var(--hair);
+    display:flex;justify-content:space-between;font-size:11px;color:var(--muted);letter-spacing:.6px;
+  }
+  .caption .now{color:var(--ink);}
+
+  /* Модалка */
+  .overlay{position:fixed;inset:0;background:rgba(22,22,22,.22);display:none;align-items:center;justify-content:center;padding:22px;z-index:20;}
+  .overlay.open{display:flex;}
+  .dialog{width:100%;max-width:340px;background:var(--bg);border:1px solid var(--hair);padding:22px 20px;}
+  .y-row{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--hair);}
+  .y-btn{width:28px;height:28px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;}
+  .y-val{font-size:17px;letter-spacing:2px;}
+  .months{display:grid;grid-template-columns:repeat(2,1fr);}
+  .pick{
+    padding:13px 4px;border:0;border-bottom:1px solid var(--hair);
+    background:transparent;color:var(--ink);font:inherit;font-size:14px;font-weight:300;
+    cursor:pointer;text-align:left;
+  }
+  .pick.now{color:var(--muted);}
+  .pick.active{font-weight:600;}
+  .pick.active::after{content:" ·";}
+  .d-foot{display:flex;justify-content:space-between;margin-top:18px;}
+  .plain{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;padding:0;letter-spacing:.4px;}
+  .plain.ink{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="head">
+    <button class="title-btn" id="titleBtn" type="button">
+      <span class="m" id="titleMonth">—</span>
+      <span class="y" id="titleYear">—</span>
+    </button>
+  </div>
+  <div class="rule"></div>
+
+  <div class="weekdays" id="weekdays"></div>
+  <div class="days" id="days"></div>
+
+  <div class="caption">
+    <span id="todayLabel" class="now">Сегодня</span>
+    <span id="monthStat">—</span>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+    <div class="y-row">
+      <button class="y-btn" id="yearPrev" type="button" aria-label="Предыдущий год">&#8592;</button>
+      <span class="y-val" id="yearVal">—</span>
+      <button class="y-btn" id="yearNext" type="button" aria-label="Следующий год">&#8594;</button>
+    </div>
+    <div class="months" id="months"></div>
+    <div class="d-foot">
+      <button class="plain ink" id="todayBtn" type="button">Сегодня</button>
+      <button class="plain" id="cancelBtn" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  var WD = ['пн','вт','ср','чт','пт','сб','вс'];
+
+  var today = new Date();
+  var view = { y: today.getFullYear(), m: today.getMonth() };
+  var pickerYear = view.y;
+
+  // Детерминированные демо-задачи
+  function tasksFor(y, m, d){
+    var h = Math.abs((y * 97 + (m + 1) * 1009 + d * 5081) * 22695477 % 100);
+    if (h < 52) return 0;
+    if (h < 76) return 1;
+    if (h < 92) return 2;
+    return 4;
+  }
+
+  function buildCells(y, m){
+    var offset = (new Date(y, m, 1).getDay() + 6) % 7;
+    var dim = new Date(y, m + 1, 0).getDate();
+    var cells = [], i, d;
+    for (i = 0; i < offset; i++) cells.push({ d: 0, out: true });
+    for (d = 1; d <= dim; d++) cells.push({ d: d, out: false });
+    while (cells.length % 7 !== 0) cells.push({ d: 0, out: true });
+    return cells;
+  }
+
+  var daysEl = document.getElementById('days');
+  var wdEl = document.getElementById('weekdays');
+
+  WD.forEach(function(w){
+    var s = document.createElement('span');
+    s.textContent = w;
+    wdEl.appendChild(s);
+  });
+
+  function render(){
+    document.getElementById('titleMonth').textContent = MONTHS[view.m];
+    document.getElementById('titleYear').textContent = view.y;
+    document.getElementById('todayLabel').textContent = 'Сегодня ' + today.getDate() + ' ' + GEN[today.getMonth()];
+
+    daysEl.innerHTML = '';
+    var total = 0;
+    buildCells(view.y, view.m).forEach(function(c){
+      var el = document.createElement('div');
+      var cls = 'cell';
+      if (c.out) cls += ' out';
+      var isToday = !c.out && c.d === today.getDate() && view.m === today.getMonth() && view.y === today.getFullYear();
+      if (isToday) cls += ' today';
+      el.className = cls;
+
+      if (!c.out) {
+        var num = document.createElement('span');
+        num.textContent = c.d;
+        el.appendChild(num);
+
+        var n = tasksFor(view.y, view.m, c.d);
+        total += n;
+        var mk = document.createElement('i');
+        mk.className = 'mk' + (n === 0 ? '' : (n === 1 ? '' : (n === 2 ? ' two' : ' many')));
+        if (n === 0) mk.style.opacity = '0';
+        el.appendChild(mk);
+      }
+      daysEl.appendChild(el);
+    });
+    document.getElementById('monthStat').textContent = total + ' задач в месяце';
+  }
+
+  /* Модалка выбора месяца */
+  var overlay = document.getElementById('overlay');
+  var monthsEl = document.getElementById('months');
+
+  function renderPicker(){
+    document.getElementById('yearVal').textContent = pickerYear;
+    monthsEl.innerHTML = '';
+    MONTHS.forEach(function(name, i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = name;
+      var cls = 'pick';
+      if (i === today.getMonth() && pickerYear === today.getFullYear()) cls += ' now';
+      if (i === view.m && pickerYear === view.y) cls += ' active';
+      b.className = cls;
+      b.addEventListener('click', function(){
+        view.y = pickerYear; view.m = i; closeModal(); render();
+      });
+      monthsEl.appendChild(b);
+    });
+  }
+
+  function openModal(){ pickerYear = view.y; renderPicker(); overlay.classList.add('open'); }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  document.getElementById('titleBtn').addEventListener('click', openModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    view.y = today.getFullYear(); view.m = today.getMonth(); closeModal(); render();
+  });
+  document.getElementById('yearPrev').addEventListener('click', function(){ pickerYear--; renderPicker(); });
+  document.getElementById('yearNext').addEventListener('click', function(){ pickerYear++; renderPicker(); });
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

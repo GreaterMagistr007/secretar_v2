@@ -53,7 +53,12 @@ export default defineConfig({
       workbox: {
         // Прекэш оболочки: разметка, скрипты и стили.
         globPatterns: ['**/*.{js,css,html}'],
+        // Галерея вариантов вёрстки — временный материал для выбора дизайна:
+        // в прекэш не берётся, иначе service worker тянет три десятка лишних страниц.
+        globIgnores: ['gallery/**'],
         navigateFallback: '/secretar_v2/index.html',
+        // Переходы внутрь галереи обслуживает сеть, а не оболочка приложения.
+        navigateFallbackDenylist: [/^\/secretar_v2\/gallery\//],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
       },

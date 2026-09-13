@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>02. Тёплый песок / заголовок слева</title>
+<style>
+  /* Вариант 02: тёплая бежевая палитра, крупный заголовок слева, управление справа */
+  :root{
+    --bg:#f7f1e6;
+    --surface:#fffdf8;
+    --line:#e6dbc7;
+    --text:#3a3027;
+    --muted:#a3927c;
+    --accent:#b4713a;
+    --accent-soft:#f2e1cd;
+    --weekend:#a8572f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);
+    font:15px/1.45 "Georgia","Times New Roman",serif;
+    overflow-x:hidden;
+  }
+  .screen{max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;padding:0 0 28px;}
+
+  header{
+    padding:calc(20px + env(safe-area-inset-top)) 18px 14px;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
+  }
+  .head-left{min-width:0;}
+  .month-btn{
+    border:0;background:transparent;padding:0;cursor:pointer;text-align:left;
+    font-family:inherit;color:inherit;display:block;
+  }
+  .m-name{display:block;font-size:30px;line-height:1.05;font-weight:700;letter-spacing:-0.6px;}
+  .m-year{display:block;font-size:15px;color:var(--muted);margin-top:3px;letter-spacing:1.5px;}
+  .head-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:0 0 auto;}
+  .arrows{display:flex;gap:6px;}
+  .arrow{
+    width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;line-height:1;
+  }
+  .arrow:active{background:var(--accent-soft);}
+  .today-link{
+    border:0;background:transparent;color:var(--accent);cursor:pointer;
+    font:inherit;font-size:14px;text-decoration:underline;padding:0;
+  }
+
+  .board{margin:6px 12px 0;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:14px 10px 16px;}
+  .weekdays,.days{display:grid;grid-template-columns:repeat(7,1fr);}
+  .weekdays span{
+    text-align:center;font-size:12px;color:var(--muted);
+    padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px;
+    font-family:-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:0.5px;
+  }
+  .weekdays span.we{color:var(--weekend);}
+  .days{row-gap:4px;}
+  .cell{
+    position:relative;height:48px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:17px;
+  }
+  .cell.out{color:#d8cbb5;}
+  .cell.we:not(.out){color:var(--weekend);}
+  .cell.today .num{
+    background:var(--accent);color:#fffdf8;border-radius:50%;
+    width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;
+  }
+  .num{width:32px;height:32px;display:flex;align-items:center;justify-content:center;}
+  .bars{display:flex;gap:2px;margin-top:2px;height:4px;}
+  .bar{width:8px;height:3px;border-radius:2px;background:var(--accent);opacity:.75;}
+  .cell.out .bar{background:#e2d6c2;}
+
+  .note{
+    margin:16px 18px 0;font-size:13px;color:var(--muted);font-style:italic;
+  }
+
+  /* Модалка */
+  .overlay{position:fixed;inset:0;background:rgba(58,48,39,.4);display:none;align-items:center;justify-content:center;padding:18px;z-index:20;}
+  .overlay.open{display:flex;}
+  .dialog{
+    width:100%;max-width:360px;background:var(--surface);
+    border:1px solid var(--line);border-radius:6px;padding:18px;
+    box-shadow:0 18px 40px rgba(58,48,39,.25);
+  }
+  .d-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .d-title{font-size:16px;font-weight:700;}
+  .y-row{display:flex;align-items:center;justify-content:center;gap:18px;margin:10px 0 16px;}
+  .y-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer;}
+  .y-val{font-size:20px;font-weight:700;min-width:64px;text-align:center;}
+  .months{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+  .pick{
+    padding:11px 8px;border:1px solid var(--line);border-radius:4px;background:transparent;
+    color:var(--text);font:inherit;font-size:14px;cursor:pointer;text-align:left;padding-left:14px;
+  }
+  .pick.now{color:var(--accent);border-color:var(--accent);}
+  .pick.active{background:var(--accent);border-color:var(--accent);color:#fffdf8;font-weight:700;}
+  .d-foot{margin-top:16px;text-align:right;}
+  .ghost{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;cursor:pointer;padding:8px 4px;}
+</style>
+</head>
+<body>
+<div class="screen">
+  <header>
+    <div class="head-left">
+      <button class="month-btn" id="titleBtn" type="button">
+        <span class="m-name" id="titleMonth">—</span>
+        <span class="m-year" id="titleYear">—</span>
+      </button>
+    </div>
+    <div class="head-right">
+      <div class="arrows">
+        <button class="arrow" id="prev" type="button" aria-label="Предыдущий месяц">&#8249;</button>
+        <button class="arrow" id="next" type="button" aria-label="Следующий месяц">&#8250;</button>
+      </div>
+      <button class="today-link" id="todayBtn" type="button">Сегодня</button>
+    </div>
+  </header>
+
+  <div class="board">
+    <div class="weekdays" id="weekdays"></div>
+    <div class="days" id="days"></div>
+  </div>
+
+  <p class="note">Штрихи под числом — задачи дня. Нажмите на название месяца, чтобы перейти к другому.</p>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+    <div class="d-head"><span class="d-title">Выбор месяца</span></div>
+    <div class="y-row">
+      <button class="y-btn" id="yearPrev" type="button" aria-label="Предыдущий год">&#8249;</button>
+      <span class="y-val" id="yearVal">—</span>
+      <button class="y-btn" id="yearNext" type="button" aria-label="Следующий год">&#8250;</button>
+    </div>
+    <div class="months" id="months"></div>
+    <div class="d-foot"><button class="ghost" id="cancelBtn" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var WD = ['пн','вт','ср','чт','пт','сб','вс'];
+
+  var today = new Date();
+  var view = { y: today.getFullYear(), m: today.getMonth() };
+  var pickerYear = view.y;
+
+  // Детерминированные демо-задачи
+  function tasksFor(y, m, d){
+    var h = Math.abs((y * 31 + (m + 1) * 977 + d * 613) * 2654435761 % 100);
+    if (h < 48) return 0;
+    if (h < 72) return 1;
+    if (h < 90) return 2;
+    return 3;
+  }
+
+  function buildCells(y, m){
+    var first = new Date(y, m, 1);
+    var offset = (first.getDay() + 6) % 7;
+    var dim = new Date(y, m + 1, 0).getDate();
+    var prevDim = new Date(y, m, 0).getDate();
+    var cells = [], i, d;
+    for (i = offset - 1; i >= 0; i--) cells.push({ d: prevDim - i, out: true });
+    for (d = 1; d <= dim; d++) cells.push({ d: d, out: false });
+    d = 1;
+    while (cells.length % 7 !== 0) cells.push({ d: d++, out: true });
+    return cells;
+  }
+
+  var daysEl = document.getElementById('days');
+  var wdEl = document.getElementById('weekdays');
+
+  WD.forEach(function(w, i){
+    var s = document.createElement('span');
+    s.textContent = w;
+    if (i > 4) s.className = 'we';
+    wdEl.appendChild(s);
+  });
+
+  function render(){
+    document.getElementById('titleMonth').textContent = MONTHS[view.m];
+    document.getElementById('titleYear').textContent = view.y;
+    daysEl.innerHTML = '';
+    buildCells(view.y, view.m).forEach(function(c, idx){
+      var el = document.createElement('div');
+      var cls = 'cell';
+      if (c.out) cls += ' out';
+      if (idx % 7 > 4) cls += ' we';
+      var isToday = !c.out && c.d === today.getDate() && view.m === today.getMonth() && view.y === today.getFullYear();
+      if (isToday) cls += ' today';
+      el.className = cls;
+
+      var num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = c.d;
+      el.appendChild(num);
+
+      var bars = document.createElement('div');
+      bars.className = 'bars';
+      var n = c.out ? 0 : tasksFor(view.y, view.m, c.d);
+      for (var k = 0; k < n; k++) {
+        var b = document.createElement('i');
+        b.className = 'bar';
+        bars.appendChild(b);
+      }
+      el.appendChild(bars);
+      daysEl.appendChild(el);
+    });
+  }
+
+  function shift(delta){
+    var m = view.m + delta;
+    view.y += Math.floor(m / 12);
+    view.m = ((m % 12) + 12) % 12;
+    render();
+  }
+
+  document.getElementById('prev').addEventListener('click', function(){ shift(-1); });
+  document.getElementById('next').addEventListener('click', function(){ shift(1); });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    view.y = today.getFullYear(); view.m = today.getMonth(); render();
+  });
+
+  /* Модалка выбора месяца */
+  var overlay = document.getElementById('overlay');
+  var monthsEl = document.getElementById('months');
+
+  function renderPicker(){
+    document.getElementById('yearVal').textContent = pickerYear;
+    monthsEl.innerHTML = '';
+    MONTHS.forEach(function(name, i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = name;
+      var cls = 'pick';
+      if (i === today.getMonth() && pickerYear === today.getFullYear()) cls += ' now';
+      if (i === view.m && pickerYear === view.y) cls += ' active';
+      b.className = cls;
+      b.addEventListener('click', function(){
+        view.y = pickerYear; view.m = i; closeModal(); render();
+      });
+      monthsEl.appendChild(b);
+    });
+  }
+
+  function openModal(){ pickerYear = view.y; renderPicker(); overlay.classList.add('open'); }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  document.getElementById('titleBtn').addEventListener('click', openModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('yearPrev').addEventListener('click', function(){ pickerYear--; renderPicker(); });
+  document.getElementById('yearNext').addEventListener('click', function(){ pickerYear++; renderPicker(); });
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

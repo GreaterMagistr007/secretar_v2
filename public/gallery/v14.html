@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>14. Светлый графит / воздушная компактная сетка</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --ink:#1c1d20; --muted:#9a9da3; --hair:#e6e7ea;
+    --dark:#2b2d31; --dot:#8d9096;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .phone{max-width:420px;margin:0 auto;min-height:100vh;padding:0 28px;display:flex;flex-direction:column}
+
+  /* много воздуха: крупные отступы, тонкая типографика */
+  .hdr{padding:56px 0 34px}
+  .month-btn{
+    background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;display:block;
+  }
+  .month-btn .m{display:block;font-size:23px;font-weight:600;letter-spacing:-.2px}
+  .month-btn .y{display:block;margin-top:3px;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:.4px}
+  .month-btn .cv{display:inline-block;margin-left:6px;font-size:10px;color:var(--muted);vertical-align:middle}
+
+  .wd{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:14px}
+  .wd span{
+    text-align:center;font-size:9px;font-weight:600;color:var(--muted);
+    letter-spacing:1.2px;text-transform:uppercase;
+  }
+
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:18px}
+  .cell{
+    border:0;background:transparent;padding:0;font:inherit;color:var(--ink);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:5px;
+  }
+  .cell .n{
+    width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:500;line-height:1;
+  }
+  .cell.out .n{color:#cfd1d5}
+  .cell.today .n{background:var(--dark);color:#fff;font-weight:600}
+  .cell.sel .n{box-shadow:inset 0 0 0 1px var(--dark)}
+  .cell.sel.today .n{box-shadow:none}
+  .mark{height:3px;display:flex;gap:3px;align-items:center}
+  .mark i{width:3px;height:3px;border-radius:50%;background:var(--dot);display:block}
+  .cell.out .mark i{background:#dcdee1}
+
+  .rule{height:1px;background:var(--hair);margin:34px 0 18px}
+  .info{display:flex;align-items:flex-start;gap:14px;padding-bottom:36px}
+  .info .num{font-size:34px;font-weight:200;line-height:.95;letter-spacing:-1px}
+  .info .col{padding-top:3px}
+  .info .col b{display:block;font-size:12px;font-weight:600}
+  .info .col span{display:block;margin-top:3px;font-size:11px;color:var(--muted);line-height:1.5}
+  .info .today-btn{
+    margin-left:auto;align-self:center;border:1px solid var(--hair);background:#fff;border-radius:999px;
+    padding:7px 14px;font:inherit;font-size:11px;font-weight:600;color:var(--ink);cursor:pointer;
+  }
+
+  .overlay{position:fixed;inset:0;background:rgba(28,29,32,.35);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;padding:24px;z-index:20}
+  .overlay.open{display:flex}
+  .dialog{width:100%;max-width:340px;background:#fff;border-radius:18px;padding:24px 22px;box-shadow:0 18px 48px rgba(28,29,32,.22)}
+  .year{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .year b{font-size:16px;font-weight:600;letter-spacing:.5px}
+  .nav{width:30px;height:30px;border-radius:50%;border:1px solid var(--hair);background:#fff;color:var(--ink);font-size:14px;cursor:pointer;line-height:1}
+  .months{display:grid;grid-template-columns:repeat(3,1fr);row-gap:14px;column-gap:6px}
+  .months button{
+    padding:8px 0;border:0;background:none;font:inherit;font-size:12px;font-weight:500;color:var(--ink);
+    cursor:pointer;border-radius:9px;
+  }
+  .months button.cur{background:var(--dark);color:#fff;font-weight:600}
+  .months button.now{color:var(--dark);font-weight:700;text-decoration:underline;text-underline-offset:4px}
+  .cancel{width:100%;margin-top:22px;padding:11px;border:1px solid var(--hair);border-radius:11px;background:#fff;font:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header class="hdr">
+    <button class="month-btn" id="monthBtn" aria-haspopup="dialog">
+      <span class="m" id="mName">—<span class="cv">▾</span></span>
+      <span class="y" id="mYear"></span>
+    </button>
+  </header>
+
+  <div class="wd" id="wd"></div>
+  <div class="grid" id="grid"></div>
+
+  <div class="rule"></div>
+  <div class="info">
+    <div class="num" id="infoNum">0</div>
+    <div class="col">
+      <b id="infoTitle">задач</b>
+      <span id="infoSub"></span>
+    </div>
+    <button class="today-btn" id="todayBtn">Сегодня</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="dialog">
+    <div class="year">
+      <button class="nav" id="prevYear" aria-label="Предыдущий год">‹</button>
+      <b id="pickYear">2026</b>
+      <button class="nav" id="nextYear" aria-label="Следующий год">›</button>
+    </div>
+    <div class="months" id="months"></div>
+    <button class="cancel" id="cancelBtn">Отмена</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var MONTHS=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  var SHORT=["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+  var GEN=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  var WD=["пн","вт","ср","чт","пт","сб","вс"];
+
+  function hash(y,m,d,salt){
+    var x=((y*12+m)*32+d)*23+(salt||0);
+    x=(x*2654435761)%4294967296; x=x^(x>>>10);
+    return Math.abs(x)%100003;
+  }
+  function count(y,m,d){ var h=hash(y,m,d,4); return (h%100<45)?0:1+(h%3); }
+
+  var today=new Date();
+  var todayKey=today.getFullYear()+"-"+today.getMonth()+"-"+today.getDate();
+  var viewY=today.getFullYear(), viewM=today.getMonth();
+  var selD=today.getDate(), selY=viewY, selM=viewM, pickYear=viewY;
+
+  var $=function(id){return document.getElementById(id);};
+  var grid=$("grid"), overlay=$("overlay");
+
+  (function(){
+    var h="";
+    for(var i=0;i<7;i++) h+="<span>"+WD[i]+"</span>";
+    $("wd").innerHTML=h;
+  })();
+
+  function render(){
+    $("mName").innerHTML=MONTHS[viewM]+'<span class="cv">▾</span>';
+    $("mYear").textContent="год "+viewY;
+
+    var offset=(new Date(viewY,viewM,1).getDay()+6)%7;
+    var start=new Date(viewY,viewM,1-offset);
+    var days=new Date(viewY,viewM+1,0).getDate();
+    var cells=Math.ceil((offset+days)/7)*7;
+
+    grid.innerHTML="";
+    for(var i=0;i<cells;i++){
+      var d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+      var y=d.getFullYear(),m=d.getMonth(),n=d.getDate();
+      var key=y+"-"+m+"-"+n;
+      var b=document.createElement("button");
+      b.type="button";
+      b.className="cell"+(m!==viewM?" out":"")+(key===todayKey?" today":"")
+        +(y===selY&&m===selM&&n===selD?" sel":"");
+      var c=count(y,m,n), mk="";
+      for(var k=0;k<Math.min(c,3);k++) mk+="<i></i>";
+      b.innerHTML='<span class="n">'+n+'</span><span class="mark">'+mk+'</span>';
+      b.dataset.y=y; b.dataset.m=m; b.dataset.d=n;
+      grid.appendChild(b);
+    }
+    updateInfo();
+  }
+
+  function updateInfo(){
+    var c=count(selY,selM,selD);
+    $("infoNum").textContent=c;
+    $("infoTitle").textContent=c===1?"задача":(c>1&&c<5?"задачи":"задач");
+    $("infoSub").textContent=selD+" "+GEN[selM]+" "+selY;
+  }
+
+  grid.addEventListener("click",function(e){
+    var b=e.target.closest(".cell");
+    if(!b) return;
+    selY=+b.dataset.y; selM=+b.dataset.m; selD=+b.dataset.d;
+    if(selM!==viewM||selY!==viewY){ viewY=selY; viewM=selM; render(); }
+    else { render(); }
+  });
+
+  $("todayBtn").addEventListener("click",function(){
+    viewY=today.getFullYear(); viewM=today.getMonth();
+    selY=viewY; selM=viewM; selD=today.getDate(); render();
+  });
+
+  function renderMonths(){
+    $("pickYear").textContent=pickYear;
+    var h="";
+    for(var i=0;i<12;i++){
+      var cls="";
+      if(pickYear===viewY&&i===viewM) cls="cur";
+      else if(pickYear===today.getFullYear()&&i===today.getMonth()) cls="now";
+      h+='<button type="button" class="'+cls+'" data-m="'+i+'">'+SHORT[i]+'</button>';
+    }
+    $("months").innerHTML=h;
+  }
+  function open(){ pickYear=viewY; renderMonths(); overlay.classList.add("open"); }
+  function close(){ overlay.classList.remove("open"); }
+
+  $("monthBtn").addEventListener("click",open);
+  $("prevYear").addEventListener("click",function(){pickYear--;renderMonths();});
+  $("nextYear").addEventListener("click",function(){pickYear++;renderMonths();});
+  $("cancelBtn").addEventListener("click",close);
+  $("months").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-m]");
+    if(!b) return;
+    viewY=pickYear; viewM=+b.dataset.m; selY=viewY; selM=viewM;
+    selD=(viewY===today.getFullYear()&&viewM===today.getMonth())?today.getDate():1;
+    close(); render();
+  });
+  overlay.addEventListener("click",function(e){ if(e.target===overlay) close(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

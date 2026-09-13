@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>01. Ясный день / панель сверху</title>
+<style>
+  /* Вариант 01: светлая нейтральная палитра, панель сверху, заголовок по центру */
+  :root{
+    --bg:#f5f6f8;
+    --surface:#ffffff;
+    --line:#e3e6ea;
+    --text:#1f2430;
+    --muted:#9aa2b1;
+    --accent:#3b6ef0;
+    --accent-soft:#e8eefe;
+    --weekend:#c0483f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .screen{max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;background:var(--bg);padding-bottom:24px;}
+
+  /* Панель сверху */
+  .topbar{
+    display:flex;align-items:center;gap:8px;
+    padding:calc(12px + env(safe-area-inset-top)) 12px 12px;
+    background:var(--surface);
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:5;
+  }
+  .nav{
+    flex:0 0 40px;height:40px;border:1px solid var(--line);border-radius:12px;
+    background:var(--surface);color:var(--text);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    font-size:17px;line-height:1;
+  }
+  .nav:active{background:var(--accent-soft);}
+  .title-btn{
+    flex:1 1 auto;min-width:0;
+    border:0;background:transparent;cursor:pointer;
+    padding:4px 6px;border-radius:12px;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-family:inherit;color:inherit;
+  }
+  .title-btn:active{background:var(--accent-soft);}
+  .title-month{font-size:20px;font-weight:650;letter-spacing:-0.2px;white-space:nowrap;}
+  .title-hint{font-size:11px;color:var(--muted);}
+
+  .toolbar{display:flex;justify-content:center;padding:10px 12px 4px;}
+  .today-btn{
+    border:1px solid var(--line);background:var(--surface);color:var(--accent);
+    font:inherit;font-size:13px;font-weight:600;
+    padding:7px 16px;border-radius:999px;cursor:pointer;
+  }
+
+  /* Сетка */
+  .grid-wrap{margin:10px 10px 0;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px;}
+  .weekdays,.days{display:grid;grid-template-columns:repeat(7,1fr);}
+  .weekdays{margin-bottom:6px;}
+  .weekdays span{
+    text-align:center;font-size:11px;font-weight:600;letter-spacing:0.4px;
+    text-transform:uppercase;color:var(--muted);padding:4px 0;
+  }
+  .weekdays span.we{color:var(--weekend);}
+  .days{gap:2px;}
+  .cell{
+    aspect-ratio:1/1.05;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+    border-radius:12px;font-size:15px;
+  }
+  .cell.out{color:#cfd4dc;}
+  .cell.we:not(.out){color:var(--weekend);}
+  .cell.today{background:var(--accent);color:#fff;font-weight:700;}
+  .dots{display:flex;gap:3px;height:5px;align-items:center;}
+  .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  .cell.today .dot{background:#fff;}
+  .cell.out .dot{background:#dfe3e9;}
+
+  .legend{
+    margin:14px 14px 0;font-size:12px;color:var(--muted);
+    display:flex;align-items:center;gap:6px;
+  }
+  .legend i{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;}
+
+  /* Модалка */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,24,33,.42);
+    display:none;align-items:flex-end;justify-content:center;z-index:20;
+  }
+  .overlay.open{display:flex;}
+  .sheet{
+    width:100%;max-width:430px;background:var(--surface);
+    border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 30px rgba(20,24,33,.18);
+  }
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .year-nav{display:flex;align-items:center;gap:14px;}
+  .year-btn{
+    width:34px;height:34px;border-radius:10px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;
+  }
+  .year-val{font-size:18px;font-weight:650;min-width:60px;text-align:center;}
+  .sheet-title{font-size:13px;color:var(--muted);}
+  .months{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .pick{
+    padding:12px 4px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font:inherit;font-size:14px;cursor:pointer;
+  }
+  .pick.now{border-color:var(--accent);color:var(--accent);}
+  .pick.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:650;}
+  .sheet-foot{margin-top:14px;display:flex;gap:8px;}
+  .ghost{
+    flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font:inherit;font-size:14px;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="topbar">
+    <button class="nav" id="prev" type="button" aria-label="Предыдущий месяц">&#8249;</button>
+    <button class="title-btn" id="titleBtn" type="button">
+      <span class="title-month" id="titleMonth">—</span>
+      <span class="title-hint">нажмите, чтобы выбрать месяц</span>
+    </button>
+    <button class="nav" id="next" type="button" aria-label="Следующий месяц">&#8250;</button>
+  </div>
+
+  <div class="toolbar"><button class="today-btn" id="todayBtn" type="button">Сегодня</button></div>
+
+  <div class="grid-wrap">
+    <div class="weekdays" id="weekdays"></div>
+    <div class="days" id="days"></div>
+  </div>
+
+  <div class="legend"><i></i> точка — задача на день</div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+    <div class="sheet-head">
+      <span class="sheet-title">Перейти к месяцу</span>
+      <div class="year-nav">
+        <button class="year-btn" id="yearPrev" type="button" aria-label="Предыдущий год">&#8249;</button>
+        <span class="year-val" id="yearVal">—</span>
+        <button class="year-btn" id="yearNext" type="button" aria-label="Следующий год">&#8250;</button>
+      </div>
+    </div>
+    <div class="months" id="months"></div>
+    <div class="sheet-foot"><button class="ghost" id="cancelBtn" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var SHORT  = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  var WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+  var today = new Date();
+  var view = { y: today.getFullYear(), m: today.getMonth() };
+  var pickerYear = view.y;
+
+  // Детерминированные демо-задачи: одинаковый день всегда даёт одинаковое число задач
+  function tasksFor(y, m, d){
+    var h = (y * 2654435761 + (m + 1) * 40503 + d * 2246822519) % 100;
+    h = Math.abs(h);
+    if (h < 44) return 0;
+    if (h < 70) return 1;
+    if (h < 88) return 2;
+    return 3;
+  }
+
+  function buildCells(y, m){
+    var first = new Date(y, m, 1);
+    var offset = (first.getDay() + 6) % 7;
+    var dim = new Date(y, m + 1, 0).getDate();
+    var prevDim = new Date(y, m, 0).getDate();
+    var cells = [], i, d;
+    for (i = offset - 1; i >= 0; i--) cells.push({ d: prevDim - i, out: true });
+    for (d = 1; d <= dim; d++) cells.push({ d: d, out: false });
+    d = 1;
+    while (cells.length % 7 !== 0) { cells.push({ d: d++, out: true }); }
+    return cells;
+  }
+
+  var daysEl = document.getElementById('days');
+  var wdEl = document.getElementById('weekdays');
+  var titleMonth = document.getElementById('titleMonth');
+
+  WD.forEach(function(w, i){
+    var s = document.createElement('span');
+    s.textContent = w;
+    if (i > 4) s.className = 'we';
+    wdEl.appendChild(s);
+  });
+
+  function render(){
+    titleMonth.textContent = MONTHS[view.m] + ' ' + view.y;
+    daysEl.innerHTML = '';
+    var cells = buildCells(view.y, view.m);
+    cells.forEach(function(c, idx){
+      var el = document.createElement('div');
+      var cls = 'cell';
+      if (c.out) cls += ' out';
+      if (idx % 7 > 4) cls += ' we';
+      var isToday = !c.out && c.d === today.getDate() && view.m === today.getMonth() && view.y === today.getFullYear();
+      if (isToday) cls += ' today';
+      el.className = cls;
+
+      var num = document.createElement('span');
+      num.textContent = c.d;
+      el.appendChild(num);
+
+      var dots = document.createElement('div');
+      dots.className = 'dots';
+      var n = c.out ? 0 : tasksFor(view.y, view.m, c.d);
+      for (var k = 0; k < n; k++) {
+        var dot = document.createElement('i');
+        dot.className = 'dot';
+        dots.appendChild(dot);
+      }
+      el.appendChild(dots);
+      daysEl.appendChild(el);
+    });
+  }
+
+  function shift(delta){
+    var m = view.m + delta;
+    view.y += Math.floor(m / 12);
+    view.m = ((m % 12) + 12) % 12;
+    render();
+  }
+
+  document.getElementById('prev').addEventListener('click', function(){ shift(-1); });
+  document.getElementById('next').addEventListener('click', function(){ shift(1); });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    view.y = today.getFullYear(); view.m = today.getMonth(); render();
+  });
+
+  /* Модалка выбора месяца */
+  var overlay = document.getElementById('overlay');
+  var monthsEl = document.getElementById('months');
+  var yearVal = document.getElementById('yearVal');
+
+  function renderPicker(){
+    yearVal.textContent = pickerYear;
+    monthsEl.innerHTML = '';
+    MONTHS.forEach(function(name, i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = SHORT[i];
+      var cls = 'pick';
+      if (i === today.getMonth() && pickerYear === today.getFullYear()) cls += ' now';
+      if (i === view.m && pickerYear === view.y) cls += ' active';
+      b.className = cls;
+      b.addEventListener('click', function(){
+        view.y = pickerYear; view.m = i;
+        closeModal(); render();
+      });
+      monthsEl.appendChild(b);
+    });
+  }
+
+  function openModal(){
+    pickerYear = view.y;
+    renderPicker();
+    overlay.classList.add('open');
+  }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  document.getElementById('titleBtn').addEventListener('click', openModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('yearPrev').addEventListener('click', function(){ pickerYear--; renderPicker(); });
+  document.getElementById('yearNext').addEventListener('click', function(){ pickerYear++; renderPicker(); });
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

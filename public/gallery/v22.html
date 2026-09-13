@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>22. Системный iOS / крупный заголовок</title>
+<style>
+  /* Вариант 22 — стиль системного iOS: large title, хайрлайны, серо-голубые акценты */
+  :root{
+    --bg:#f2f2f7; --card:#ffffff; --ink:#000; --sec:#8e8e93; --sep:#c6c6c8;
+    --accent:#5a7fa8; --accentSoft:#e6edf4; --red:#c75c5c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);overflow-x:hidden;
+    font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:430px;margin:0 auto;padding-bottom:40px}
+  .navbar{padding:8px 16px 0;display:flex;justify-content:space-between;align-items:center;font-size:17px;color:var(--accent)}
+  .navbar button{background:none;border:0;color:var(--accent);font-size:17px;padding:6px 0;cursor:pointer}
+  /* Крупный заголовок в стиле iOS */
+  .large{padding:6px 16px 14px}
+  .large button{background:none;border:0;padding:0;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--ink)}
+  .large .t{font-size:34px;font-weight:700;letter-spacing:-.5px}
+  .large .chev{font-size:20px;color:var(--sec);transform:translateY(2px)}
+  .large .sub{font-size:15px;color:var(--sec);margin-top:2px}
+  .hair{height:.5px;background:var(--sep)}
+  .wd{display:grid;grid-template-columns:repeat(7,1fr);padding:8px 8px 6px;background:var(--bg)}
+  .wd div{text-align:center;font-size:12px;font-weight:600;color:var(--sec)}
+  .card{background:var(--card);margin:0;padding:6px 8px 12px}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .cell{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:6px;gap:4px}
+  .num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;letter-spacing:-.2px}
+  .cell.out .num{color:#c7c7cc}
+  .cell.today .num{background:var(--accent);color:#fff;font-weight:600}
+  .cell.sat .num,.cell.sun .num{color:var(--red)}
+  .cell.today.sat .num,.cell.today.sun .num{color:#fff}
+  .bar{width:16px;height:3px;border-radius:2px;background:var(--accent);opacity:.75}
+  .bar.n0{opacity:0}
+  .bar.n2{width:24px}
+  .bar.n3{width:30px}
+  .list{margin:18px 16px 0;background:var(--card);border-radius:12px;overflow:hidden}
+  .row{padding:12px 16px;font-size:16px;display:flex;justify-content:space-between;align-items:center}
+  .row+.row{border-top:.5px solid var(--sep)}
+  .row .v{color:var(--sec);font-size:15px}
+  /* Модалка — iOS action sheet */
+  .ovl{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;justify-content:center;z-index:9}
+  .ovl.on{display:flex}
+  .sheet{width:100%;max-width:430px;padding:0 8px calc(10px + env(safe-area-inset-bottom))}
+  .sheetcard{background:rgba(255,255,255,.96);border-radius:14px;overflow:hidden;margin-bottom:8px}
+  .ynav{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:.5px solid var(--sep)}
+  .ynav b{font-size:17px}
+  .ynav button{border:0;background:none;color:var(--accent);font-size:22px;width:44px;height:34px;cursor:pointer}
+  .mgrid{display:grid;grid-template-columns:repeat(3,1fr)}
+  .mgrid button{border:0;border-right:.5px solid var(--sep);border-bottom:.5px solid var(--sep);background:none;
+    padding:15px 4px;font-size:15px;color:var(--accent);cursor:pointer;font-family:inherit}
+  .mgrid button:nth-child(3n){border-right:0}
+  .mgrid button:nth-child(n+10){border-bottom:0}
+  .mgrid button.cur{background:var(--accentSoft);font-weight:600}
+  .cancelbtn{width:100%;background:#fff;border:0;border-radius:14px;padding:16px;font-size:17px;font-weight:600;color:var(--accent);cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="navbar"><button id="tbtn">Сегодня</button><span style="font-size:15px;color:var(--sec)">Календарь</span></div>
+  <div class="large">
+    <button id="head" aria-haspopup="dialog">
+      <span class="t" id="hTitle"></span><span class="chev">⌄</span>
+    </button>
+    <div class="sub" id="hSub"></div>
+  </div>
+  <div class="hair"></div>
+  <div class="wd" id="wd"></div>
+  <div class="hair"></div>
+  <div class="card"><div class="grid" id="grid"></div></div>
+  <div class="hair"></div>
+  <div class="list">
+    <div class="row"><span>Задач в месяце</span><span class="v" id="cnt"></span></div>
+    <div class="row"><span>Дней с задачами</span><span class="v" id="cntd"></span></div>
+  </div>
+</div>
+
+<div class="ovl" id="ovl" role="dialog" aria-modal="true" aria-label="Переход к месяцу">
+  <div class="sheet">
+    <div class="sheetcard">
+      <div class="ynav">
+        <button id="prevY" aria-label="Предыдущий год">‹</button>
+        <b id="yLbl"></b>
+        <button id="nextY" aria-label="Следующий год">›</button>
+      </div>
+      <div class="mgrid" id="mgrid"></div>
+    </div>
+    <button class="cancelbtn" id="cancel">Отмена</button>
+  </div>
+</div>
+
+<script>
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MSHORT=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const WD=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const today=new Date();
+  let vy=today.getFullYear(), vm=today.getMonth(), pickY=vy;
+
+  function rnd(y,m,d){const x=Math.sin((y*12+m)*17.3+d*4.77)*10000;return x-Math.floor(x);}
+  function tasks(y,m,d){const r=rnd(y,m,d);return r<.48?0:1+Math.floor(r*10)%3;}
+
+  document.getElementById('wd').innerHTML=WD.map(d=>'<div>'+d+'</div>').join('');
+
+  function draw(){
+    document.getElementById('hTitle').textContent=MONTHS[vm];
+    document.getElementById('hSub').textContent=vy+' год';
+    const off=(new Date(vy,vm,1).getDay()+6)%7;
+    const dim=new Date(vy,vm+1,0).getDate(), pdim=new Date(vy,vm,0).getDate();
+    let html='',total=0,days=0,col=0;
+    const cls=i=>i===5?' sat':i===6?' sun':'';
+    for(let i=off-1;i>=0;i--){html+='<div class="cell out"><div class="num">'+(pdim-i)+'</div></div>';}
+    col=off;
+    for(let d=1;d<=dim;d++){
+      const t=tasks(vy,vm,d); total+=t; if(t)days++;
+      const isT=(d===today.getDate()&&vm===today.getMonth()&&vy===today.getFullYear());
+      html+='<div class="cell'+(isT?' today':'')+cls(col%7)+'"><div class="num">'+d+'</div><div class="bar n'+t+'"></div></div>';
+      col++;
+    }
+    const rest=(7-(col%7))%7;
+    for(let d=1;d<=rest;d++){html+='<div class="cell out"><div class="num">'+d+'</div></div>';}
+    document.getElementById('grid').innerHTML=html;
+    document.getElementById('cnt').textContent=total;
+    document.getElementById('cntd').textContent=days;
+  }
+
+  function drawMonths(){
+    document.getElementById('yLbl').textContent=pickY;
+    document.getElementById('mgrid').innerHTML=MSHORT.map((m,i)=>
+      '<button data-m="'+i+'" class="'+(i===vm&&pickY===vy?'cur':'')+'">'+m+'</button>').join('');
+  }
+
+  const ovl=document.getElementById('ovl');
+  const open=()=>{pickY=vy;drawMonths();ovl.classList.add('on');};
+  const close=()=>ovl.classList.remove('on');
+
+  document.getElementById('head').addEventListener('click',open);
+  document.getElementById('cancel').addEventListener('click',close);
+  ovl.addEventListener('click',e=>{if(e.target===ovl)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ovl.classList.contains('on'))close();});
+  document.getElementById('prevY').addEventListener('click',()=>{pickY--;drawMonths();});
+  document.getElementById('nextY').addEventListener('click',()=>{pickY++;drawMonths();});
+  document.getElementById('mgrid').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-m]');if(!b)return;
+    vm=+b.dataset.m;vy=pickY;draw();close();
+  });
+  document.getElementById('tbtn').addEventListener('click',()=>{vy=today.getFullYear();vm=today.getMonth();draw();});
+
+  draw();
+</script>
+</body>
+</html>
