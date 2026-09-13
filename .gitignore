@@ -1,0 +1,21 @@
+# Секреты и локальные настройки
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Зависимости и сборка
+node_modules/
+dist/
+build/
+coverage/
+
+# Среда разработки
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Временные файлы запуска
+.run/
+*.log
