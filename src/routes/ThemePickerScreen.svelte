@@ -135,36 +135,32 @@
 
   .cards {
     display: grid;
-    /* Ширина колонки фиксирована: от неё считается масштаб превью ниже. */
-    grid-template-columns: repeat(auto-fill, var(--preview-width));
-    gap: var(--space-md);
-    justify-content: center;
+    /* Колонки резиновые: карточка занимает доступную ширину, а превью подстраивается
+       под неё через контейнерные единицы. Раньше ширина была фиксированной, и на узком
+       телефоне оставалась одна колонка с пустой половиной экрана. */
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-sm);
     margin: 0;
     padding: 0;
     list-style: none;
 
-    /* Макеты галереи нарисованы под телефон; уменьшаем их до размера карточки. */
+    /* Размеры макета галереи: задают пропорции превью и запасной масштаб. */
     --frame-width: 390px;
     --frame-height: 650px;
-    --preview-width: 156px;
-    --preview-height: 260px;
-    --preview-scale: 0.4;
+    --preview-scale: 0.374;
   }
 
-  /* На узком телефоне карточка 156px оставляла одну колонку и половину ширины пустой,
-     а страница вытягивалась на девять тысяч пикселей. Ужимаем превью до двух колонок. */
-  @media (max-width: 400px) {
+  @media (min-width: 520px) {
     .cards {
-      gap: var(--space-sm);
-      --preview-width: 146px;
-      --preview-height: 243px;
-      --preview-scale: 0.374;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--space-md);
     }
   }
 
   .card {
     position: relative;
     display: flex;
+    overflow: hidden;
     flex-direction: column;
     gap: var(--space-xs);
     padding: var(--space-xs);
@@ -180,11 +176,14 @@
 
   .preview {
     position: relative;
-    width: var(--preview-width);
-    height: var(--preview-height);
+    width: 100%;
+    /* Пропорции макета телефона: высота считается от фактической ширины карточки. */
+    aspect-ratio: var(--frame-width) / var(--frame-height);
     overflow: hidden;
     border-radius: var(--radius-md);
     background: var(--color-surface-muted);
+    /* Единицы cqw ниже считаются от ширины этого контейнера. */
+    container-type: inline-size;
   }
 
   .frame {
@@ -194,10 +193,21 @@
     width: var(--frame-width);
     height: var(--frame-height);
     border: 0;
-    transform: scale(var(--preview-scale));
+    /* Масштаб привязан к фактической ширине превью, а не к заранее посчитанному числу:
+       при любой ширине карточки макет вписывается ровно в её границы. */
+    /* Делим на длину, а не на число: scale() принимает безразмерный множитель,
+       и только деление cqw на px даёт его. */
+    transform: scale(calc(100cqw / var(--frame-width)));
     transform-origin: top left;
     /* Превью не перехватывает касания: кликом занимается кнопка .hit поверх карточки. */
     pointer-events: none;
+  }
+
+  /* Запасной путь для браузеров без контейнерных запросов: фиксированный масштаб. */
+  @supports not (container-type: inline-size) {
+    .frame {
+      transform: scale(var(--preview-scale));
+    }
   }
 
   .check {
