@@ -1,27 +1,76 @@
 /*
- * Глобальные стили и тема.
- * Дизайн подбирается правкой значений переменных — светлая тема задаётся на :root,
- * тёмная переопределяет только цвета.
+ * Глобальные стили и значения токенов по умолчанию.
+ *
+ * :root задаёт полный набор токенов из docs/design_tokens.md — приложение выглядит
+ * осмысленно до того, как выбрана тема (и если сохранённой темы нет).
+ * applyTheme проставляет токены инлайновым стилем на <html>, поэтому перекрывает
+ * значения отсюда, включая тёмный вариант ниже.
+ *
+ * Размеры отступов и высота навигации — не токены темы: раскладка темой не меняется
+ * (правило 3 из docs/design_tokens.md), поэтому они заданы только здесь.
  */
 
 :root {
-  /* Цвета светлой темы */
+  /* Поверхности и текст */
   --color-bg: #f6f7f9;
   --color-surface: #ffffff;
+  --color-surface-muted: #eef1f4;
   --color-text: #1c2430;
   --color-text-muted: #5b6675;
-  --color-accent: #2f4858;
   --color-border: #dfe3e8;
 
-  /* Типографика */
-  --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-size-base: 16px;
-  --font-size-title: clamp(2rem, 12vw, 3rem);
+  /* Три ключевых цвета */
+  --color-primary: #2f4858;
+  --color-on-primary: #ffffff;
+  --color-secondary: #4d7ea8;
+  --color-on-secondary: #ffffff;
+  --color-tertiary: #d98e4a;
+  --color-on-tertiary: #1c2430;
 
-  /* Отступы */
-  --space-sm: 8px;
+  /* Кнопки */
+  --button-primary-bg: #2f4858;
+  --button-primary-text: #ffffff;
+  --button-primary-border: transparent;
+  --button-secondary-bg: #ffffff;
+  --button-secondary-text: #2f4858;
+  --button-secondary-border: #dfe3e8;
+  --button-radius: 12px;
+
+  /* Состояния календаря */
+  --color-today: #2f4858;
+  --color-on-today: #ffffff;
+  --color-selected: #dbe6ee;
+  --color-weekend: #c0483f;
+  --color-task-a: #3b6ef0;
+  --color-task-b: #2fa37a;
+  --color-task-c: #d98e4a;
+  --color-done: #9aa2b1;
+
+  /* Форма и типографика */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgb(28 36 48 / 0.08);
+  --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-heading: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-weight-heading: 650;
+  --letter-spacing-heading: 0;
+
+  /* Нижняя навигация */
+  --nav-bg: #ffffff;
+  --nav-text: #5b6675;
+  --nav-text-active: #2f4858;
+  --nav-border: #dfe3e8;
+
+  /* Раскладка: темой не управляется */
+  --space-xs: 6px;
+  --space-sm: 10px;
   --space-md: 16px;
   --space-lg: 24px;
+  --nav-height: 60px;
+  --font-size-base: 16px;
 
   color-scheme: light dark;
 }
@@ -30,10 +79,40 @@
   :root {
     --color-bg: #14181c;
     --color-surface: #1d2329;
+    --color-surface-muted: #232a31;
     --color-text: #e8ecf1;
     --color-text-muted: #9aa6b4;
-    --color-accent: #7fb2c9;
     --color-border: #2b333b;
+
+    --color-primary: #7fb2c9;
+    --color-on-primary: #10171c;
+    --color-secondary: #5b8fb0;
+    --color-on-secondary: #10171c;
+    --color-tertiary: #d9a76a;
+    --color-on-tertiary: #10171c;
+
+    --button-primary-bg: #7fb2c9;
+    --button-primary-text: #10171c;
+    --button-primary-border: transparent;
+    --button-secondary-bg: #1d2329;
+    --button-secondary-text: #e8ecf1;
+    --button-secondary-border: #2b333b;
+
+    --color-today: #7fb2c9;
+    --color-on-today: #10171c;
+    --color-selected: #26333c;
+    --color-weekend: #e08a82;
+    --color-task-a: #6f9bff;
+    --color-task-b: #55c39a;
+    --color-task-c: #d9a76a;
+    --color-done: #6b7785;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+
+    --nav-bg: #1d2329;
+    --nav-text: #9aa6b4;
+    --nav-text-active: #7fb2c9;
+    --nav-border: #2b333b;
   }
 }
 

@@ -1,60 +1,62 @@
 <script lang="ts">
-  // Базовый путь сборки: на GitHub Pages приложение живёт в подкаталоге,
-  // поэтому ссылки строятся от него, а не от корня домена.
-  const base = import.meta.env.BASE_URL;
+  /**
+   * Оболочка приложения: применение сохранённой темы, вывод экрана по маршруту
+   * и нижняя навигация, видимая на всех экранах (требование Т-18).
+   */
+  import BottomNav from './lib/components/BottomNav.svelte';
+  import CalendarScreen from './routes/CalendarScreen.svelte';
+  import SettingsScreen from './routes/SettingsScreen.svelte';
+  import ThemePickerScreen from './routes/ThemePickerScreen.svelte';
+  import { router, startRouter } from './lib/router.svelte';
+  import { findTheme } from './lib/themes/index';
+  import { applyTheme, loadThemeId, saveThemeId } from './lib/themes/apply';
+  import type { Theme } from './lib/themes/types';
+
+  // Тема восстанавливается до первой отрисовки (требование Т-21). Если выбора не было
+  // или сохранён id исчезнувшей темы, приложение остаётся на значениях из app.css.
+  const savedTheme = findTheme(loadThemeId());
+
+  let currentThemeId = $state<string | null>(savedTheme ? savedTheme.id : null);
+
+  if (savedTheme) {
+    applyTheme(savedTheme);
+  }
+
+  // Слежение за хэшем живёт столько же, сколько оболочка.
+  $effect(() => startRouter());
+
+  /** Клик по карточке темы: перекрашивает приложение целиком и запоминает выбор. */
+  function selectTheme(theme: Theme): void {
+    applyTheme(theme);
+    saveThemeId(theme.id);
+    currentThemeId = theme.id;
+  }
 </script>
 
-<!-- Главный экран первой поставки: название приложения (требование Т-15)
-     и ссылка на галерею вариантов вёрстки календаря (позиция каталога 22). -->
-<main class="screen">
-  <h1 class="title">Секретарь</h1>
-  <a class="link" href="{base}gallery/">Демо шаблонов календаря</a>
-</main>
+<div class="app">
+  <main class="content">
+    {#if router.current === '/settings'}
+      <SettingsScreen />
+    {:else if router.current === '/settings/theme'}
+      <ThemePickerScreen {currentThemeId} onSelect={selectTheme} />
+    {:else}
+      <CalendarScreen />
+    {/if}
+  </main>
+
+  <BottomNav current={router.current} />
+</div>
 
 <style>
-  .screen {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-    align-items: center;
-    justify-content: center;
+  .app {
     min-height: 100svh;
+    background: var(--color-bg);
+  }
+
+  .content {
+    /* Запас снизу: панель навигации прижата к низу и не должна перекрывать содержимое. */
     padding:
-      calc(var(--space-lg) + env(safe-area-inset-top))
-      calc(var(--space-lg) + env(safe-area-inset-right))
-      calc(var(--space-lg) + env(safe-area-inset-bottom))
-      calc(var(--space-lg) + env(safe-area-inset-left));
-    box-sizing: border-box;
-  }
-
-  .title {
-    margin: 0;
-    max-width: 100%;
-    font-size: var(--font-size-title);
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: 0.01em;
-    color: var(--color-text);
-    text-align: center;
-    overflow-wrap: anywhere;
-  }
-
-  .link {
-    max-width: 100%;
-    padding: var(--space-sm) var(--space-md);
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
-    background: var(--color-surface);
-    color: var(--color-accent);
-    font-size: 0.95rem;
-    font-weight: 500;
-    text-align: center;
-    text-decoration: none;
-    overflow-wrap: anywhere;
-  }
-
-  .link:hover,
-  .link:focus-visible {
-    border-color: var(--color-accent);
+      env(safe-area-inset-top) env(safe-area-inset-right)
+      calc(var(--nav-height) + env(safe-area-inset-bottom)) env(safe-area-inset-left);
   }
 </style>

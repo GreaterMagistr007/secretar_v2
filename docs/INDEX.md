@@ -33,6 +33,7 @@ type: project
 
 ## Архитектура и планы
 - [architecture_storage.md](architecture_storage.md) — хранение: IndexedDB через Dexie, схема, индексы, поиск по описанию, модель повторений.
+- [design_tokens.md](design_tokens.md) — система тем: состав дизайн-токенов, формат темы, правила применения и добавления.
 - [plan_stage_01_pwa.md](plan_stage_01_pwa.md) — план этапа 1: оболочка PWA, главный экран «Секретарь», публикация.
 - [plan_stage_02_calendar_gallery.md](plan_stage_02_calendar_gallery.md) — план этапа 2: галерея вариантов вёрстки календаря для выбора дизайна.
 
@@ -45,6 +46,7 @@ type: project
 
 ## Механики реализации
 - [mechanic_pwa_shell.md](mechanic_pwa_shell.md) — оболочка PWA: каркас Vite + Svelte, главный экран, манифест, service worker, иконки, окружение сборки, workflow публикации.
+- [mechanic_themes.md](mechanic_themes.md) — темы и оболочка приложения: 30 тем, применение и хранение выбора, роутинг, нижняя навигация, экраны календаря, настроек и выбора темы.
 Новые механики заводятся файлом `mechanic_<name>.md` и вносятся в этот список.
 
 ## Хронология
