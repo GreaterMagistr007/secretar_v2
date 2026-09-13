@@ -7,7 +7,18 @@
       "Write(./**)",
       "Write(./.*/**)",
       "NotebookEdit(./**)",
-      "NotebookEdit(./.*/**)"
+      "NotebookEdit(./.*/**)",
+      "Bash",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Agent",
+      "TaskOutput",
+      "TaskStop",
+      "Monitor",
+      "mcp__claude-in-chrome__*"
     ]
   },
   "hooks": {
@@ -18,6 +29,16 @@
           {
             "type": "command",
             "command": "f=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // empty'); a='{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Правка файлов внутри проекта разрешена настройками проекта\"}}'; case \"$f\" in */.claude/settings*.json|*/.claude/hooks/*|*/.env|*/.env.*|*/.ssh/*|*id_rsa*|*/credentials*|*/.aws/*|*/.npmrc|*/.claude.json) exit 0;; esac; case \"$f\" in */memory/*) printf '%s' \"$a\"; exit 0;; esac; d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; case \"$d\" in /|\"\") exit 0;; esac; case \"$f\" in \"$d\"/*) printf '%s' \"$a\";; esac",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__claude-in-chrome__.*|Monitor|TaskStop|TaskOutput|WebFetch|WebSearch|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Инструменты браузера и фоновых задач разрешены настройками проекта\"}}'",
             "timeout": 5
           }
         ]
@@ -34,6 +55,16 @@
       }
     ],
     "PermissionRequest": [
+      {
+        "matcher": "mcp__claude-in-chrome__.*|Monitor|TaskStop|TaskOutput|WebFetch|WebSearch|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Инструменты браузера и фоновых задач разрешены настройками проекта\"}}'",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
