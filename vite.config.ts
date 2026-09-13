@@ -59,6 +59,25 @@ export default defineConfig({
         navigateFallback: '/secretar_v2/index.html',
         // Переходы внутрь галереи обслуживает сеть, а не оболочка приложения.
         navigateFallbackDenylist: [/^\/secretar_v2\/gallery\//],
+        // Шрифты тем в прекэш не берутся (globPatterns их не захватывает): тянуть
+        // все семейства при первой загрузке незачем, нужен только шрифт выбранной темы.
+        // Зато однажды показанный шрифт остаётся в кэше и работает офлайн — файл
+        // неизменяемый, поэтому CacheFirst и длинный срок хранения.
+        runtimeCaching: [
+          {
+            urlPattern: /\/fonts\/[^/]+\.woff2$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'secretar-fonts',
+              expiration: {
+                // Файлов ровно 12 — запас на случай новых тем.
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
       },

@@ -48,8 +48,8 @@ const theme: Theme = {
     radiusLg: '4px',
     radiusPill: '999px',
     shadowCard: '0 0 12px rgba(213, 177, 104, 0.3)',
-    fontFamily: 'Georgia, "Times New Roman", serif',
-    fontFamilyHeading: 'Georgia, "Times New Roman", serif',
+    fontFamily: 'Georgia, Literata, "Times New Roman", serif',
+    fontFamilyHeading: 'Georgia, Literata, "Times New Roman", serif',
     fontWeightHeading: '400',
     letterSpacingHeading: '0.02em',
 

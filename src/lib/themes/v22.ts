@@ -48,8 +48,8 @@ const theme: Theme = {
     radiusLg: '14px',
     radiusPill: '999px',
     shadowCard: 'none',
-    fontFamily: '-apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    fontFamilyHeading: '-apple-system, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    fontFamily: '-apple-system, "SF Pro Text", Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    fontFamilyHeading: '-apple-system, "SF Pro Display", Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     fontWeightHeading: '700',
     letterSpacingHeading: '-0.5px',
 

@@ -48,8 +48,8 @@ const theme: Theme = {
     radiusLg: '0px',
     radiusPill: '999px',
     shadowCard: 'none',
-    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-    fontFamilyHeading: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    fontFamily: '"Helvetica Neue", Helvetica, Arimo, Arial, sans-serif',
+    fontFamilyHeading: '"Helvetica Neue", Helvetica, Arimo, Arial, sans-serif',
     fontWeightHeading: '400',
     letterSpacingHeading: '0.4px',
 

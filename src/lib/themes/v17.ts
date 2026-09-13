@@ -48,8 +48,8 @@ const theme: Theme = {
     radiusLg: '0',
     radiusPill: '0',
     shadowCard: '6px 6px 0 #0a0a0a',
-    fontFamily: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", "Courier New", monospace',
-    fontFamilyHeading: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", "Courier New", monospace',
+    fontFamily: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", "Roboto Mono", "Courier New", monospace',
+    fontFamilyHeading: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", "Roboto Mono", "Courier New", monospace',
     fontWeightHeading: '800',
     letterSpacingHeading: '-1px',
 
