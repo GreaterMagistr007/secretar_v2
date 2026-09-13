@@ -1,0 +1,66 @@
+/*
+ * Глобальные стили и тема.
+ * Дизайн подбирается правкой значений переменных — светлая тема задаётся на :root,
+ * тёмная переопределяет только цвета.
+ */
+
+:root {
+  /* Цвета светлой темы */
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-text: #1c2430;
+  --color-text-muted: #5b6675;
+  --color-accent: #2f4858;
+  --color-border: #dfe3e8;
+
+  /* Типографика */
+  --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-base: 16px;
+  --font-size-title: clamp(2rem, 12vw, 3rem);
+
+  /* Отступы */
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #14181c;
+    --color-surface: #1d2329;
+    --color-text: #e8ecf1;
+    --color-text-muted: #9aa6b4;
+    --color-accent: #7fb2c9;
+    --color-border: #2b333b;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Горизонтальной прокрутки нет ни на какой ширине экрана телефона. */
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+}
+
+#app {
+  min-height: 100svh;
+}

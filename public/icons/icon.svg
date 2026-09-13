@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Секретарь</title>
+  <rect width="512" height="512" rx="112" ry="112" fill="#2f4858"/>
+  <path d="M 323.7 159.3 A 118 118 0 1 0 323.7 352.7"
+        fill="none" stroke="#f6f7f9" stroke-width="46" stroke-linecap="round"/>
+</svg>

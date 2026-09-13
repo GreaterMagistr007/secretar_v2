@@ -42,7 +42,8 @@ type: project
 - [deployment.md](deployment.md) — сборка в контейнере, локальный запуск, публикация на GitHub Pages и разовая настройка репозитория.
 
 ## Механики реализации
-Файлы `mechanic_<name>.md` заводятся при реализации и вносятся в этот индекс. Сейчас механик нет.
+- [mechanic_pwa_shell.md](mechanic_pwa_shell.md) — оболочка PWA: каркас Vite + Svelte, главный экран, манифест, service worker, иконки, окружение сборки, workflow публикации.
+Новые механики заводятся файлом `mechanic_<name>.md` и вносятся в этот список.
 
 ## Хронология
 - [history_sessions.md](history_sessions.md) — история сессий: чем закончилась каждая, что решено.

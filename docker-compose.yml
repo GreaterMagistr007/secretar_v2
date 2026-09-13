@@ -1,0 +1,41 @@
+# Окружение разработки и сборки. Контейнеры работают от пользователя хоста,
+# иначе node_modules/ и dist/ получаются с правами root.
+# Запуск: env UID=$(id -u) GID=$(id -g) docker compose up dev
+# Именно через `env`: в bash переменная UID только для чтения, и присваивание
+# префиксом команды (UID=... docker compose ...) завершается ошибкой.
+# Без переменных подставляется 1000:1000 — обычный первый пользователь Linux.
+services:
+  dev:
+    build: .
+    image: secretar-node
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    environment:
+      npm_config_cache: /tmp/.npm
+    volumes:
+      - .:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev"
+
+  build:
+    build: .
+    image: secretar-node
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    environment:
+      npm_config_cache: /tmp/.npm
+    volumes:
+      - .:/app
+    command: sh -c "npm install && npm run build"
+
+  check:
+    build: .
+    image: secretar-node
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    environment:
+      npm_config_cache: /tmp/.npm
+    volumes:
+      - .:/app
+    command: sh -c "npm install && npm run check"

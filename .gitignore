@@ -19,3 +19,12 @@ coverage/
 # Временные файлы запуска
 .run/
 *.log
+
+# Кэш сборки Vite
+.vite/
+node_modules/.vite/
+node_modules/.vite-temp/
+*.tsbuildinfo
+
+# Артефакты vite-plugin-pwa (генерируются в dist/)
+dev-dist/
