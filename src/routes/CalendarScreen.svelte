@@ -1,9 +1,17 @@
 <script lang="ts">
   /**
    * Экран «Календарь» — главный экран приложения (требование Т-11).
-   * Раскладка временная: итоговую владелец выбирает из галереи макетов,
-   * здесь нужен рабочий месяц с переходом по месяцам и метками задач.
+   * Сетка месяца с переходом по месяцам, метки задач по приоритетам (требование Т-24),
+   * выбор дня со списком его задач (требование Т-27) и кнопка добавления задачи
+   * (требование Т-25), открывающая модалку создания (требование Т-26).
    */
+  import type { NewTask, Priority, Task } from '../lib/tasks/types';
+  import { taskRepository } from '../lib/task-repository';
+  import { calendarState } from '../lib/calendar-state.svelte';
+  import { PRIORITY_COLOR, PRIORITY_ORDER } from '../lib/priority';
+  import { formatLongDate, toIsoDate, todayIso } from '../lib/date';
+  import TaskCreateModal from '../lib/components/TaskCreateModal.svelte';
+  import DayTaskList from '../lib/components/DayTaskList.svelte';
 
   const MONTHS = [
     'Январь',
@@ -39,88 +47,202 @@
   const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
   /** Сетка месяца — шесть недель: высота экрана не скачет при переходе между месяцами. */
-  const CELLS_IN_GRID = 42;
-
-  /** Категория демонстрационной метки задачи: токены --color-task-a/b/c. */
-  type TaskCategory = 'a' | 'b' | 'c';
+  const WEEKS_IN_GRID = 6;
+  const DAYS_IN_WEEK = 7;
 
   interface DayCell {
-    key: string;
+    /** Дата ячейки в виде YYYY-MM-DD — она же ключ списка. */
+    iso: string;
     day: number;
     /** День принадлежит показываемому месяцу, а не соседнему. */
     inMonth: boolean;
     isToday: boolean;
     isWeekend: boolean;
-    marks: TaskCategory[];
   }
 
   const today = new Date();
   const todayYear = today.getFullYear();
   const todayMonth = today.getMonth();
-  const todayDay = today.getDate();
-
-  let viewYear = $state(todayYear);
-  let viewMonth = $state(todayMonth);
+  const todayIsoDate = todayIso();
 
   let pickerOpen = $state(false);
   let pickerYear = $state(todayYear);
 
-  /**
-   * Демонстрационные метки задач: детерминированная выдумка от даты.
-   * Настоящих задач в оболочке ещё нет, а перерисовка не должна менять картинку.
-   */
-  function demoMarks(year: number, month: number, day: number): TaskCategory[] {
-    const seed = (year * 12 + month) * 31 + day;
-    const marks: TaskCategory[] = [];
+  /** Задачи всех дней, попавших в сетку: из них собираются метки. */
+  let monthTasks = $state<Task[]>([]);
+  let monthError = $state<string | null>(null);
 
-    if (seed % 3 === 0) {
-      marks.push('a');
+  /** Задачи выбранного дня. */
+  let dayTasks = $state<Task[]>([]);
+  let dayLoading = $state(false);
+  let dayError = $state<string | null>(null);
+
+  let modalOpen = $state(false);
+
+  /** Счётчик перечитывания: растёт после сохранения задачи и обновляет метки и список. */
+  let reloadToken = $state(0);
+
+  /** Строит шесть недель по семь дней вместе с хвостами соседних месяцев. */
+  function buildWeeks(year: number, month: number): DayCell[][] {
+    const firstWeekday = new Date(year, month, 1).getDay();
+    // getDay(): воскресенье — 0; сдвигаем к понедельнику.
+    const shift = (firstWeekday + 6) % 7;
+    const weeks: DayCell[][] = [];
+
+    for (let week = 0; week < WEEKS_IN_GRID; week += 1) {
+      const cells: DayCell[] = [];
+
+      for (let index = 0; index < DAYS_IN_WEEK; index += 1) {
+        const date = new Date(year, month, week * DAYS_IN_WEEK + index + 1 - shift);
+        const weekday = date.getDay();
+
+        cells.push({
+          iso: toIsoDate(date),
+          day: date.getDate(),
+          inMonth: date.getMonth() === month && date.getFullYear() === year,
+          isToday: toIsoDate(date) === todayIsoDate,
+          isWeekend: weekday === 0 || weekday === 6,
+        });
+      }
+
+      weeks.push(cells);
     }
 
-    if (seed % 5 === 0) {
-      marks.push('b');
+    return weeks;
+  }
+
+  /** Метки дня: по одной на каждый встретившийся приоритет, важное первым. */
+  function buildMarks(tasks: Task[]): Map<string, Priority[]> {
+    const found = new Map<string, Set<Priority>>();
+
+    for (const task of tasks) {
+      const priorities = found.get(task.date) ?? new Set<Priority>();
+
+      priorities.add(task.priority);
+      found.set(task.date, priorities);
     }
 
-    if (seed % 7 === 0) {
-      marks.push('c');
+    const marks = new Map<string, Priority[]>();
+
+    for (const [date, priorities] of found) {
+      marks.set(
+        date,
+        PRIORITY_ORDER.filter((priority) => priorities.has(priority)),
+      );
     }
 
     return marks;
   }
 
-  /** Строит 42 ячейки месяца вместе с хвостами соседних месяцев. */
-  function buildCells(year: number, month: number): DayCell[] {
-    const firstWeekday = new Date(year, month, 1).getDay();
-    // getDay(): воскресенье — 0; сдвигаем к понедельнику.
-    const shift = (firstWeekday + 6) % 7;
-    const cells: DayCell[] = [];
+  /** Сколько задач в каждом дне: нужно только для подписи ячейки в озвучке. */
+  function buildCounts(tasks: Task[]): Map<string, number> {
+    const counts = new Map<string, number>();
 
-    for (let index = 0; index < CELLS_IN_GRID; index += 1) {
-      const date = new Date(year, month, index + 1 - shift);
-      const cellYear = date.getFullYear();
-      const cellMonth = date.getMonth();
-      const cellDay = date.getDate();
-      const inMonth = cellMonth === month && cellYear === year;
-      const weekday = date.getDay();
-
-      cells.push({
-        key: `${cellYear}-${cellMonth}-${cellDay}`,
-        day: cellDay,
-        inMonth,
-        isToday: cellYear === todayYear && cellMonth === todayMonth && cellDay === todayDay,
-        isWeekend: weekday === 0 || weekday === 6,
-        marks: inMonth ? demoMarks(cellYear, cellMonth, cellDay) : [],
-      });
+    for (const task of tasks) {
+      counts.set(task.date, (counts.get(task.date) ?? 0) + 1);
     }
 
-    return cells;
+    return counts;
   }
 
-  const cells = $derived(buildCells(viewYear, viewMonth));
-  const heading = $derived(`${MONTHS[viewMonth]} ${viewYear}`);
+  const weeks = $derived(buildWeeks(calendarState.viewYear, calendarState.viewMonth));
+  const marks = $derived(buildMarks(monthTasks));
+  const counts = $derived(buildCounts(monthTasks));
+  const heading = $derived(`${MONTHS[calendarState.viewMonth]} ${calendarState.viewYear}`);
+
+  // Метки сетки: задачи всего показанного диапазона, включая хвосты соседних месяцев.
+  $effect(() => {
+    const from = weeks[0][0].iso;
+    const to = weeks[WEEKS_IN_GRID - 1][DAYS_IN_WEEK - 1].iso;
+
+    // Перечитывание после сохранения задачи: месяц тот же, а данные уже другие.
+    void reloadToken;
+
+    let cancelled = false;
+
+    taskRepository
+      .listByRange(from, to)
+      .then((tasks) => {
+        if (cancelled) {
+          return;
+        }
+
+        monthTasks = tasks;
+        monthError = null;
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        monthTasks = [];
+        monthError = 'Не удалось прочитать задачи месяца.';
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  // Список задач выбранного дня.
+  $effect(() => {
+    const date = calendarState.selectedDate;
+
+    void reloadToken;
+
+    if (date === null) {
+      dayTasks = [];
+      dayLoading = false;
+      dayError = null;
+
+      return;
+    }
+
+    let cancelled = false;
+
+    dayLoading = true;
+    dayError = null;
+
+    taskRepository
+      .listByDate(date)
+      .then((tasks) => {
+        if (cancelled) {
+          return;
+        }
+
+        dayTasks = tasks;
+        dayLoading = false;
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        dayTasks = [];
+        dayError = 'Не удалось прочитать задачи дня.';
+        dayLoading = false;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  /** Подпись ячейки для озвучки: дата и сколько на ней задач. */
+  function dayLabel(cell: DayCell): string {
+    const count = counts.get(cell.iso) ?? 0;
+
+    return count === 0
+      ? `${formatLongDate(cell.iso)}, задач нет`
+      : `${formatLongDate(cell.iso)}, задач: ${count}`;
+  }
+
+  function selectDay(cell: DayCell): void {
+    calendarState.select(cell.iso);
+  }
 
   function openPicker(): void {
-    pickerYear = viewYear;
+    pickerYear = calendarState.viewYear;
     pickerOpen = true;
   }
 
@@ -129,13 +251,32 @@
   }
 
   function pickMonth(month: number): void {
-    viewYear = pickerYear;
-    viewMonth = month;
+    calendarState.showMonth(pickerYear, month);
     pickerOpen = false;
   }
 
   function shiftYear(delta: number): void {
     pickerYear += delta;
+  }
+
+  function openModal(): void {
+    modalOpen = true;
+  }
+
+  function closeModal(): void {
+    modalOpen = false;
+  }
+
+  /**
+   * Сохранение задачи из модалки. Ошибку намеренно не глушим: модалка остаётся открытой
+   * и показывает сообщение, введённое не пропадает.
+   */
+  async function createTask(data: NewTask): Promise<void> {
+    const created = await taskRepository.create(data);
+
+    calendarState.select(created.date);
+    reloadToken += 1;
+    modalOpen = false;
   }
 
   function handleKeydown(event: KeyboardEvent): void {
@@ -164,33 +305,86 @@
     </div>
 
     <div class="days" role="rowgroup">
-      {#each cells as cell (cell.key)}
-        <div
-          class="day"
-          class:day--outside={!cell.inMonth}
-          class:day--today={cell.isToday}
-          class:day--weekend={cell.isWeekend && cell.inMonth}
-          role="gridcell"
-        >
-          <span class="day-number">{cell.day}</span>
-          <span class="marks">
-            {#each cell.marks as mark (mark)}
-              <span class="mark mark--{mark}"></span>
-            {/each}
-          </span>
+      {#each weeks as week (week[0].iso)}
+        <div class="week" role="row">
+          {#each week as cell (cell.iso)}
+            <span
+              class="cell"
+              role="gridcell"
+              aria-selected={cell.iso === calendarState.selectedDate}
+            >
+              <button
+                type="button"
+                class="day"
+                class:day--outside={!cell.inMonth}
+                class:day--weekend={cell.isWeekend && cell.inMonth}
+                class:day--selected={cell.iso === calendarState.selectedDate}
+                class:day--today={cell.isToday}
+                aria-label={dayLabel(cell)}
+                aria-current={cell.isToday ? 'date' : undefined}
+                onclick={() => selectDay(cell)}
+              >
+                <span class="day-number">{cell.day}</span>
+                <span class="marks">
+                  {#each marks.get(cell.iso) ?? [] as priority (priority)}
+                    <span class="mark" style="background: {PRIORITY_COLOR[priority]}"></span>
+                  {/each}
+                </span>
+              </button>
+            </span>
+          {/each}
         </div>
       {/each}
     </div>
   </div>
 
+  {#if monthError !== null}
+    <p class="grid-error" role="alert">{monthError}</p>
+  {/if}
+
   <!-- Метки в ячейках показывают приоритет задачи (требование Т-24). Цвета те же, что были
        у прежних категорий: расцветка сохранена, изменился только смысл подписей. -->
   <p class="legend">
-    <span class="legend-item"><span class="mark mark--a"></span>Средний</span>
-    <span class="legend-item"><span class="mark mark--b"></span>Низкий</span>
-    <span class="legend-item"><span class="mark mark--c"></span>Высокий</span>
+    <span class="legend-item"
+      ><span class="mark" style="background: {PRIORITY_COLOR.medium}"></span>Средний</span
+    >
+    <span class="legend-item"
+      ><span class="mark" style="background: {PRIORITY_COLOR.low}"></span>Низкий</span
+    >
+    <span class="legend-item"
+      ><span class="mark" style="background: {PRIORITY_COLOR.high}"></span>Высокий</span
+    >
   </p>
+
+  {#if calendarState.selectedDate !== null}
+    <DayTaskList
+      date={calendarState.selectedDate}
+      tasks={dayTasks}
+      loading={dayLoading}
+      error={dayError}
+    />
+  {/if}
 </section>
+
+<button type="button" class="add" onclick={openModal} aria-label="Добавить задачу">
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M12 5v14M5 12h14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.2"
+      stroke-linecap="round"
+    />
+  </svg>
+</button>
+
+{#if modalOpen}
+  <TaskCreateModal
+    initialDate={calendarState.selectedDate ?? todayIsoDate}
+    onSubmit={createTask}
+    onClose={closeModal}
+  />
+{/if}
 
 {#if pickerOpen}
   <div class="overlay">
@@ -242,7 +436,8 @@
             type="button"
             class="month"
             class:month--current={index === todayMonth && pickerYear === todayYear}
-            class:month--selected={index === viewMonth && pickerYear === viewYear}
+            class:month--selected={index === calendarState.viewMonth &&
+              pickerYear === calendarState.viewYear}
             onclick={() => pickMonth(index)}
           >
             {month}
@@ -259,6 +454,8 @@
     flex-direction: column;
     gap: var(--space-md);
     padding: var(--space-md);
+    /* Запас снизу: кнопка добавления не должна перекрывать последнюю задачу списка. */
+    padding-bottom: calc(var(--space-lg) + 64px);
   }
 
   .header {
@@ -297,9 +494,15 @@
   }
 
   .weekdays,
-  .days {
+  .week {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+
+  .days {
+    display: flex;
+    flex-direction: column;
     gap: 2px;
   }
 
@@ -316,17 +519,28 @@
     color: var(--color-weekend);
   }
 
+  .cell {
+    display: block;
+    min-width: 0;
+  }
+
   .day {
     display: flex;
+    width: 100%;
     flex-direction: column;
     gap: 3px;
     align-items: center;
     justify-content: center;
     aspect-ratio: 1 / 1;
     min-width: 0;
+    padding: 0;
+    border: none;
     border-radius: var(--radius-md);
+    background: transparent;
     color: var(--color-text);
+    font-family: var(--font-family);
     font-size: 0.95rem;
+    cursor: pointer;
   }
 
   .day--outside {
@@ -338,10 +552,28 @@
     color: var(--color-weekend);
   }
 
+  .day--selected {
+    background: var(--color-selected);
+    color: var(--color-text);
+    font-weight: 600;
+    opacity: 1;
+  }
+
   .day--today {
     background: var(--color-today);
     color: var(--color-on-today);
     font-weight: 600;
+  }
+
+  /* Сегодняшний день, выбранный кликом: фон остаётся «сегодняшним», выбор показан обводкой. */
+  .day--today.day--selected {
+    outline: 2px solid var(--color-selected);
+    outline-offset: -2px;
+  }
+
+  .day:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
   }
 
   .day-number {
@@ -362,16 +594,11 @@
     flex: none;
   }
 
-  .mark--a {
-    background: var(--color-task-a);
-  }
-
-  .mark--b {
-    background: var(--color-task-b);
-  }
-
-  .mark--c {
-    background: var(--color-task-c);
+  .grid-error {
+    margin: 0;
+    color: var(--color-weekend);
+    font-size: 0.85rem;
+    text-align: center;
   }
 
   .legend {
@@ -388,6 +615,36 @@
     display: inline-flex;
     gap: 6px;
     align-items: center;
+  }
+
+  /* Кнопка добавления задачи (требование Т-25): правый нижний угол над навигацией,
+     с учётом безопасных отступов устройства. */
+  .add {
+    position: fixed;
+    right: calc(var(--space-md) + env(safe-area-inset-right));
+    bottom: calc(var(--space-md) + var(--nav-height) + env(safe-area-inset-bottom));
+    z-index: 30;
+    display: inline-flex;
+    width: 56px;
+    height: 56px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--button-primary-border);
+    border-radius: var(--radius-pill);
+    background: var(--button-primary-bg);
+    box-shadow: var(--shadow-card);
+    color: var(--button-primary-text);
+    cursor: pointer;
+  }
+
+  .add svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .add:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   .overlay {

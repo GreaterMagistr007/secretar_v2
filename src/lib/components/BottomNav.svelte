@@ -11,7 +11,8 @@
 
   /** Вкладка «Настройки» остаётся активной и на вложенном экране выбора темы. */
   const settingsActive = $derived(current === '/settings' || current === '/settings/theme');
-  const calendarActive = $derived(current === '/calendar');
+  /** Экран задачи открывается из календаря, поэтому активной остаётся вкладка «Календарь». */
+  const calendarActive = $derived(current === '/calendar' || current === '/task');
 </script>
 
 <nav class="nav" aria-label="Основная навигация">
