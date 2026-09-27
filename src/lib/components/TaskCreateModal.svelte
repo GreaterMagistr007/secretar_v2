@@ -1,15 +1,22 @@
 <script lang="ts">
   /**
-   * Модалка создания задачи (требование Т-26): текст, дата и приоритет, все три поля обязательны.
-   * Сохранение недоступно, пока хотя бы одно поле пустое; закрытие — по фону, по Esc и по кнопке
-   * отмены, введённое при закрытии не сохраняется.
+   * Модалка создания задачи (требование Т-26): текст, дата, приоритет и повторение.
+   * Обязательны текст и дата; приоритет и повторение заполнены всегда значениями по умолчанию
+   * и на доступность сохранения не влияют. Сохранение недоступно, пока обязательное поле пустое;
+   * закрытие — по фону, по Esc и по кнопке отмены, введённое при закрытии не сохраняется.
    *
    * Сохранением занимается вызывающий экран: модалка отдаёт ему данные через onSubmit и показывает
    * ошибку, если обещание отклонено. Так доступ к хранилищу остаётся в одном месте.
    */
   import { untrack } from 'svelte';
-  import { DEFAULT_PRIORITY, PRIORITY_LABELS } from '../tasks/types';
-  import type { NewTask, Priority } from '../tasks/types';
+  import {
+    DEFAULT_PRIORITY,
+    DEFAULT_RECURRENCE,
+    PRIORITY_LABELS,
+    RECURRENCE_LABELS,
+    RECURRENCE_ORDER,
+  } from '../tasks/types';
+  import type { NewTask, Priority, Recurrence } from '../tasks/types';
   import { PRIORITY_COLOR, PRIORITY_ORDER } from '../priority';
   import { isIsoDate } from '../date';
 
@@ -30,6 +37,7 @@
   // и внешние изменения не должны затирать введённое (untrack снимает связь с пропсом).
   let date = $state(untrack(() => initialDate));
   let priority = $state<Priority>(DEFAULT_PRIORITY);
+  let recurrence = $state<Recurrence>(DEFAULT_RECURRENCE);
 
   // Ошибка у поля показывается после первого ухода из него или после попытки сохранить,
   // чтобы пустая форма не встречала пользователя красным текстом.
@@ -67,7 +75,7 @@
     }
 
     const items = dialog.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled])',
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled])',
     );
 
     return Array.from(items);
@@ -124,7 +132,7 @@
     saveError = null;
 
     try {
-      await onSubmit({ text: text.trim(), date, priority });
+      await onSubmit({ text: text.trim(), date, priority, recurrence });
     } catch {
       saveError = 'Не удалось сохранить задачу. Попробуйте ещё раз.';
     } finally {
@@ -198,6 +206,15 @@
           {/each}
         </div>
       </fieldset>
+
+      <label class="field">
+        <span class="field-label">Повторение</span>
+        <select class="input" bind:value={recurrence}>
+          {#each RECURRENCE_ORDER as value (value)}
+            <option {value}>{RECURRENCE_LABELS[value]}</option>
+          {/each}
+        </select>
+      </label>
 
       {#if saveError !== null}
         <p class="error error--form" role="alert">{saveError}</p>

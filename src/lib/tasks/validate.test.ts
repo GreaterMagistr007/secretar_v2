@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { daysInMonth, isCalendarDate, isLeapYear, isPriority, validateNewTask } from './validate';
+import {
+  daysInMonth,
+  isCalendarDate,
+  isLeapYear,
+  isPriority,
+  isRecurrence,
+  validateNewTask,
+} from './validate';
 
 describe('isLeapYear', () => {
   it('год, кратный 4, — високосный', () => {
@@ -97,64 +104,159 @@ describe('isPriority', () => {
   });
 });
 
+describe('isRecurrence', () => {
+  it('принимает все пять значений перечня', () => {
+    expect(isRecurrence('none')).toBe(true);
+    expect(isRecurrence('daily')).toBe(true);
+    expect(isRecurrence('weekly')).toBe(true);
+    expect(isRecurrence('monthly')).toBe(true);
+    expect(isRecurrence('yearly')).toBe(true);
+  });
+
+  it('отклоняет значение вне перечня', () => {
+    expect(isRecurrence('hourly')).toBe(false);
+    expect(isRecurrence('')).toBe(false);
+    expect(isRecurrence('Weekly')).toBe(false);
+  });
+});
+
 describe('validateNewTask', () => {
   it('принимает корректный набор и обрезает пробелы в тексте', () => {
     const result = validateNewTask({
       text: '  Купить молоко  ',
       date: '2026-09-15',
       priority: 'high',
+      recurrence: 'weekly',
     });
 
     expect(result).toEqual({
       ok: true,
-      value: { text: 'Купить молоко', date: '2026-09-15', priority: 'high' },
+      value: { text: 'Купить молоко', date: '2026-09-15', priority: 'high', recurrence: 'weekly' },
     });
   });
 
+  it('принимает каждое из пяти значений повторения и возвращает его как есть', () => {
+    for (const recurrence of ['none', 'daily', 'weekly', 'monthly', 'yearly']) {
+      const result = validateNewTask({
+        text: 'Задача',
+        date: '2026-09-15',
+        priority: 'medium',
+        recurrence,
+      });
+
+      expect(result).toEqual({
+        ok: true,
+        value: { text: 'Задача', date: '2026-09-15', priority: 'medium', recurrence },
+      });
+    }
+  });
+
+  it('отклоняет пустое повторение', () => {
+    const result = validateNewTask({
+      text: 'Задача',
+      date: '2026-09-15',
+      priority: 'medium',
+      recurrence: '',
+    });
+
+    expect(result).toEqual({ ok: false, errors: ['Неизвестное повторение'] });
+  });
+
+  it('отклоняет постороннее значение повторения', () => {
+    const result = validateNewTask({
+      text: 'Задача',
+      date: '2026-09-15',
+      priority: 'medium',
+      recurrence: 'hourly',
+    });
+
+    expect(result).toEqual({ ok: false, errors: ['Неизвестное повторение'] });
+  });
+
   it('принимает 29 февраля високосного года', () => {
-    const result = validateNewTask({ text: 'Проверить', date: '2024-02-29', priority: 'low' });
+    const result = validateNewTask({
+      text: 'Проверить',
+      date: '2024-02-29',
+      priority: 'low',
+      recurrence: 'none',
+    });
 
     expect(result.ok).toBe(true);
   });
 
   it('отклоняет пустой текст', () => {
-    const result = validateNewTask({ text: '', date: '2026-09-15', priority: 'medium' });
+    const result = validateNewTask({
+      text: '',
+      date: '2026-09-15',
+      priority: 'medium',
+      recurrence: 'none',
+    });
 
     expect(result).toEqual({ ok: false, errors: ['Текст задачи не может быть пустым'] });
   });
 
   it('отклоняет текст из одних пробелов', () => {
-    const result = validateNewTask({ text: '   \t ', date: '2026-09-15', priority: 'medium' });
+    const result = validateNewTask({
+      text: '   \t ',
+      date: '2026-09-15',
+      priority: 'medium',
+      recurrence: 'none',
+    });
 
     expect(result).toEqual({ ok: false, errors: ['Текст задачи не может быть пустым'] });
   });
 
   it('отклоняет неверный формат даты', () => {
-    const result = validateNewTask({ text: 'Задача', date: '15.09.2026', priority: 'medium' });
+    const result = validateNewTask({
+      text: 'Задача',
+      date: '15.09.2026',
+      priority: 'medium',
+      recurrence: 'none',
+    });
 
     expect(result).toEqual({ ok: false, errors: ['Дата должна быть в формате ГГГГ-ММ-ДД'] });
   });
 
   it('отклоняет несуществующую дату 2026-02-31', () => {
-    const result = validateNewTask({ text: 'Задача', date: '2026-02-31', priority: 'medium' });
+    const result = validateNewTask({
+      text: 'Задача',
+      date: '2026-02-31',
+      priority: 'medium',
+      recurrence: 'none',
+    });
 
     expect(result).toEqual({ ok: false, errors: ['Такой даты нет в календаре'] });
   });
 
   it('отклоняет 29 февраля невисокосного года', () => {
-    const result = validateNewTask({ text: 'Задача', date: '2026-02-29', priority: 'medium' });
+    const result = validateNewTask({
+      text: 'Задача',
+      date: '2026-02-29',
+      priority: 'medium',
+      recurrence: 'none',
+    });
 
     expect(result).toEqual({ ok: false, errors: ['Такой даты нет в календаре'] });
   });
 
   it('отклоняет неизвестный приоритет', () => {
-    const result = validateNewTask({ text: 'Задача', date: '2026-09-15', priority: 'urgent' });
+    const result = validateNewTask({
+      text: 'Задача',
+      date: '2026-09-15',
+      priority: 'urgent',
+      recurrence: 'none',
+    });
 
     expect(result).toEqual({ ok: false, errors: ['Неизвестный приоритет'] });
   });
 
   it('собирает все ошибки сразу', () => {
-    const result = validateNewTask({ text: ' ', date: '2026-02-30', priority: 'urgent' });
+    const result = validateNewTask({
+      text: ' ',
+      date: '2026-02-30',
+      priority: 'urgent',
+      recurrence: 'none',
+    });
 
     expect(result).toEqual({
       ok: false,
@@ -166,8 +268,32 @@ describe('validateNewTask', () => {
     });
   });
 
+  it('собирает ошибку повторения вместе с остальными', () => {
+    const result = validateNewTask({
+      text: ' ',
+      date: '2026-02-30',
+      priority: 'urgent',
+      recurrence: 'hourly',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        'Текст задачи не может быть пустым',
+        'Такой даты нет в календаре',
+        'Неизвестный приоритет',
+        'Неизвестное повторение',
+      ],
+    });
+  });
+
   it('при ошибке не отдаёт значение', () => {
-    const result = validateNewTask({ text: '', date: '2026-09-15', priority: 'medium' });
+    const result = validateNewTask({
+      text: '',
+      date: '2026-09-15',
+      priority: 'medium',
+      recurrence: 'none',
+    });
 
     expect(result.ok).toBe(false);
 

@@ -7,12 +7,19 @@
  */
 
 import { createId } from './id';
-import { sortTasksByDate, sortTasksForDay } from './sort';
+import { occurrencesInRange, occursOn } from './recurrence';
+import { sortOccurrences, sortTasksByDate } from './sort';
 import { DEFAULT_SEARCH_LIMIT, matchesSearchQuery, parseSearchQuery, tokenize } from './text';
-import type { NewTask, Task, TaskPatch, TaskRepository } from './types';
+import type { NewTask, Occurrence, Task, TaskPatch, TaskRepository } from './types';
 
 export class MemoryTaskRepository implements TaskRepository {
   private readonly tasks = new Map<string, Task>();
+
+  /**
+   * Отметки выполнения: ключ `${taskId}|${occurrenceDate}`. Время отметки в памяти не
+   * хранится — наружу отдаётся только признак `done`.
+   */
+  private readonly completions = new Set<string>();
 
   /**
    * Копия задачи: наружу и внутрь хранилища попадают разные объекты, иначе
@@ -22,6 +29,20 @@ export class MemoryTaskRepository implements TaskRepository {
     return { ...task, searchTokens: [...task.searchTokens] };
   }
 
+  /** Ключ отметки. Форма ключа та же, что в Dexie-реализации, — реализации не разойдутся. */
+  private static completionKey(taskId: string, occurrenceDate: string): string {
+    return `${taskId}|${occurrenceDate}`;
+  }
+
+  /** Вхождение задачи в указанный день вместе с отметкой выполнения этого дня. */
+  private occurrence(task: Task, date: string): Occurrence {
+    return {
+      task: MemoryTaskRepository.copy(task),
+      date,
+      done: this.completions.has(MemoryTaskRepository.completionKey(task.id, date)),
+    };
+  }
+
   async create(data: NewTask): Promise<Task> {
     const now = Date.now();
     const task: Task = {
@@ -29,7 +50,7 @@ export class MemoryTaskRepository implements TaskRepository {
       text: data.text,
       date: data.date,
       priority: data.priority,
-      recurrence: 'none',
+      recurrence: data.recurrence,
       searchTokens: tokenize(data.text),
       createdAt: now,
       updatedAt: now,
@@ -40,17 +61,32 @@ export class MemoryTaskRepository implements TaskRepository {
     return MemoryTaskRepository.copy(task);
   }
 
-  async listByDate(date: string): Promise<Task[]> {
-    const found = [...this.tasks.values()].filter((task) => task.date === date);
+  async listOccurrencesByDate(date: string): Promise<Occurrence[]> {
+    const found = [...this.tasks.values()]
+      .filter((task) => occursOn(task.date, task.recurrence, date))
+      .map((task) => this.occurrence(task, date));
 
-    return sortTasksForDay(found).map(MemoryTaskRepository.copy);
+    return sortOccurrences(found);
   }
 
-  async listByRange(from: string, to: string): Promise<Task[]> {
-    // Даты плавающие и записаны как YYYY-MM-DD, поэтому сравниваются как строки.
-    const found = [...this.tasks.values()].filter((task) => task.date >= from && task.date <= to);
+  async listOccurrencesByRange(from: string, to: string): Promise<Occurrence[]> {
+    const found = [...this.tasks.values()].flatMap((task) =>
+      occurrencesInRange(task.date, task.recurrence, from, to).map((date) =>
+        this.occurrence(task, date),
+      ),
+    );
 
-    return sortTasksByDate(found).map(MemoryTaskRepository.copy);
+    return sortOccurrences(found);
+  }
+
+  async setCompleted(taskId: string, occurrenceDate: string, done: boolean): Promise<void> {
+    const key = MemoryTaskRepository.completionKey(taskId, occurrenceDate);
+
+    if (done) {
+      this.completions.add(key);
+    } else {
+      this.completions.delete(key);
+    }
   }
 
   async get(id: string): Promise<Task | null> {
@@ -83,6 +119,15 @@ export class MemoryTaskRepository implements TaskRepository {
   }
 
   async remove(id: string): Promise<boolean> {
+    const prefix = `${id}|`;
+
+    // Каскад: вместе с задачей уходят все её отметки выполнения.
+    for (const key of this.completions) {
+      if (key.startsWith(prefix)) {
+        this.completions.delete(key);
+      }
+    }
+
     return this.tasks.delete(id);
   }
 

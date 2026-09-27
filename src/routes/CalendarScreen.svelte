@@ -5,7 +5,7 @@
    * выбор дня со списком его задач (требование Т-27) и кнопка добавления задачи
    * (требование Т-25), открывающая модалку создания (требование Т-26).
    */
-  import type { NewTask, Priority, Task } from '../lib/tasks/types';
+  import type { NewTask, Occurrence, Priority } from '../lib/tasks/types';
   import { taskRepository } from '../lib/task-repository';
   import { calendarState } from '../lib/calendar-state.svelte';
   import { PRIORITY_COLOR, PRIORITY_ORDER } from '../lib/priority';
@@ -68,14 +68,20 @@
   let pickerOpen = $state(false);
   let pickerYear = $state(todayYear);
 
-  /** Задачи всех дней, попавших в сетку: из них собираются метки. */
-  let monthTasks = $state<Task[]>([]);
+  /** Вхождения задач во все дни, попавшие в сетку: из них собираются метки. */
+  let monthOccurrences = $state<Occurrence[]>([]);
   let monthError = $state<string | null>(null);
 
-  /** Задачи выбранного дня. */
-  let dayTasks = $state<Task[]>([]);
+  /** Вхождения задач в выбранный день. */
+  let dayOccurrences = $state<Occurrence[]>([]);
   let dayLoading = $state(false);
   let dayError = $state<string | null>(null);
+
+  /**
+   * Ошибка сохранения отметки выполнения — отдельно от dayError: эффект списка дня зависит
+   * от reloadToken и первым делом обнуляет dayError, поэтому сообщение стёрлось бы до отрисовки.
+   */
+  let toggleError = $state<string | null>(null);
 
   let modalOpen = $state(false);
 
@@ -111,15 +117,18 @@
     return weeks;
   }
 
-  /** Метки дня: по одной на каждый встретившийся приоритет, важное первым. */
-  function buildMarks(tasks: Task[]): Map<string, Priority[]> {
+  /**
+   * Метки дня: по одной на каждый встретившийся приоритет, важное первым.
+   * Отметка выполнения на метку не влияет — выполненные задачи остаются в сетке.
+   */
+  function buildMarks(occurrences: Occurrence[]): Map<string, Priority[]> {
     const found = new Map<string, Set<Priority>>();
 
-    for (const task of tasks) {
-      const priorities = found.get(task.date) ?? new Set<Priority>();
+    for (const occurrence of occurrences) {
+      const priorities = found.get(occurrence.date) ?? new Set<Priority>();
 
-      priorities.add(task.priority);
-      found.set(task.date, priorities);
+      priorities.add(occurrence.task.priority);
+      found.set(occurrence.date, priorities);
     }
 
     const marks = new Map<string, Priority[]>();
@@ -135,19 +144,19 @@
   }
 
   /** Сколько задач в каждом дне: нужно только для подписи ячейки в озвучке. */
-  function buildCounts(tasks: Task[]): Map<string, number> {
+  function buildCounts(occurrences: Occurrence[]): Map<string, number> {
     const counts = new Map<string, number>();
 
-    for (const task of tasks) {
-      counts.set(task.date, (counts.get(task.date) ?? 0) + 1);
+    for (const occurrence of occurrences) {
+      counts.set(occurrence.date, (counts.get(occurrence.date) ?? 0) + 1);
     }
 
     return counts;
   }
 
   const weeks = $derived(buildWeeks(calendarState.viewYear, calendarState.viewMonth));
-  const marks = $derived(buildMarks(monthTasks));
-  const counts = $derived(buildCounts(monthTasks));
+  const marks = $derived(buildMarks(monthOccurrences));
+  const counts = $derived(buildCounts(monthOccurrences));
   const heading = $derived(`${MONTHS[calendarState.viewMonth]} ${calendarState.viewYear}`);
 
   // Метки сетки: задачи всего показанного диапазона, включая хвосты соседних месяцев.
@@ -161,13 +170,13 @@
     let cancelled = false;
 
     taskRepository
-      .listByRange(from, to)
-      .then((tasks) => {
+      .listOccurrencesByRange(from, to)
+      .then((occurrences) => {
         if (cancelled) {
           return;
         }
 
-        monthTasks = tasks;
+        monthOccurrences = occurrences;
         monthError = null;
       })
       .catch(() => {
@@ -175,7 +184,7 @@
           return;
         }
 
-        monthTasks = [];
+        monthOccurrences = [];
         monthError = 'Не удалось прочитать задачи месяца.';
       });
 
@@ -191,7 +200,7 @@
     void reloadToken;
 
     if (date === null) {
-      dayTasks = [];
+      dayOccurrences = [];
       dayLoading = false;
       dayError = null;
 
@@ -204,13 +213,13 @@
     dayError = null;
 
     taskRepository
-      .listByDate(date)
-      .then((tasks) => {
+      .listOccurrencesByDate(date)
+      .then((occurrences) => {
         if (cancelled) {
           return;
         }
 
-        dayTasks = tasks;
+        dayOccurrences = occurrences;
         dayLoading = false;
       })
       .catch(() => {
@@ -218,7 +227,7 @@
           return;
         }
 
-        dayTasks = [];
+        dayOccurrences = [];
         dayError = 'Не удалось прочитать задачи дня.';
         dayLoading = false;
       });
@@ -277,6 +286,20 @@
     calendarState.select(created.date);
     reloadToken += 1;
     modalOpen = false;
+  }
+
+  /** Отметка выполнения одного вхождения из списка дня (требование Т-5). */
+  async function toggleCompletion(occurrence: Occurrence, done: boolean): Promise<void> {
+    toggleError = null;
+
+    try {
+      await taskRepository.setCompleted(occurrence.task.id, occurrence.date, done);
+    } catch {
+      toggleError = 'Не удалось сохранить отметку.';
+    } finally {
+      // Перечитывание и при ошибке: на экране снова оказывается то, что фактически в базе.
+      reloadToken += 1;
+    }
   }
 
   function handleKeydown(event: KeyboardEvent): void {
@@ -359,10 +382,15 @@
   {#if calendarState.selectedDate !== null}
     <DayTaskList
       date={calendarState.selectedDate}
-      tasks={dayTasks}
+      occurrences={dayOccurrences}
       loading={dayLoading}
       error={dayError}
+      onToggle={toggleCompletion}
     />
+
+    {#if toggleError !== null}
+      <p class="grid-error" role="alert">{toggleError}</p>
+    {/if}
   {/if}
 </section>
 

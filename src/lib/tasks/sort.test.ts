@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compareTasksInDay, sortTasksByDate, sortTasksForDay } from './sort';
-import type { Priority, Task } from './types';
+import { compareTasksInDay, sortOccurrences, sortTasksByDate } from './sort';
+import type { Occurrence, Priority, Task } from './types';
 
 /** Задача с минимально нужными для сортировки полями; остальное — фиксированные значения. */
 function makeTask(id: string, priority: Priority, date = '2026-09-15'): Task {
@@ -14,6 +14,11 @@ function makeTask(id: string, priority: Priority, date = '2026-09-15'): Task {
     createdAt: 1000,
     updatedAt: 1000,
   };
+}
+
+/** Вхождение задачи без повторений: день вхождения совпадает с датой задачи. */
+function makeOccurrence(id: string, priority: Priority, date = '2026-09-15'): Occurrence {
+  return { task: makeTask(id, priority, date), date, done: false };
 }
 
 /** Идентификаторы задаются по возрастанию: UUID v7 сортируется по времени создания. */
@@ -43,23 +48,23 @@ describe('compareTasksInDay', () => {
   });
 });
 
-describe('sortTasksForDay', () => {
+describe('sortOccurrences', () => {
   it('пустой список остаётся пустым', () => {
-    expect(sortTasksForDay([])).toEqual([]);
+    expect(sortOccurrences([])).toEqual([]);
   });
 
-  it('список из одной задачи не меняется', () => {
-    const only = makeTask(EARLY, 'low');
+  it('список из одного вхождения не меняется', () => {
+    const only = makeOccurrence(EARLY, 'low');
 
-    expect(sortTasksForDay([only])).toEqual([only]);
+    expect(sortOccurrences([only])).toEqual([only]);
   });
 
   it('раскладывает перемешанные приоритеты в порядке высокий, средний, низкий', () => {
-    const low = makeTask(EARLY, 'low');
-    const high = makeTask(MIDDLE, 'high');
-    const medium = makeTask(LATE, 'medium');
+    const low = makeOccurrence(EARLY, 'low');
+    const high = makeOccurrence(MIDDLE, 'high');
+    const medium = makeOccurrence(LATE, 'medium');
 
-    expect(sortTasksForDay([low, high, medium]).map((task) => task.id)).toEqual([
+    expect(sortOccurrences([low, high, medium]).map((item) => item.task.id)).toEqual([
       MIDDLE,
       LATE,
       EARLY,
@@ -67,11 +72,11 @@ describe('sortTasksForDay', () => {
   });
 
   it('внутри одного приоритета сохраняет порядок создания', () => {
-    const third = makeTask(LATE, 'high');
-    const first = makeTask(EARLY, 'high');
-    const second = makeTask(MIDDLE, 'high');
+    const third = makeOccurrence(LATE, 'high');
+    const first = makeOccurrence(EARLY, 'high');
+    const second = makeOccurrence(MIDDLE, 'high');
 
-    expect(sortTasksForDay([third, first, second]).map((task) => task.id)).toEqual([
+    expect(sortOccurrences([third, first, second]).map((item) => item.task.id)).toEqual([
       EARLY,
       MIDDLE,
       LATE,
@@ -79,11 +84,46 @@ describe('sortTasksForDay', () => {
   });
 
   it('не меняет исходный массив', () => {
-    const tasks = [makeTask(EARLY, 'low'), makeTask(MIDDLE, 'high')];
+    const occurrences = [makeOccurrence(EARLY, 'low'), makeOccurrence(MIDDLE, 'high')];
 
-    sortTasksForDay(tasks);
+    sortOccurrences(occurrences);
 
-    expect(tasks.map((task) => task.id)).toEqual([EARLY, MIDDLE]);
+    expect(occurrences.map((item) => item.task.id)).toEqual([EARLY, MIDDLE]);
+  });
+
+  it('сортирует по дню вхождения, а внутри дня — по приоритету', () => {
+    const tomorrowHigh = makeOccurrence(EARLY, 'high', '2026-09-16');
+    const todayLow = makeOccurrence(MIDDLE, 'low', '2026-09-15');
+    const todayHigh = makeOccurrence(LATE, 'high', '2026-09-15');
+
+    expect(
+      sortOccurrences([tomorrowHigh, todayLow, todayHigh]).map((item) => item.task.id),
+    ).toEqual([LATE, MIDDLE, EARLY]);
+  });
+
+  it('сравнивает день вхождения, а не дату старта задачи', () => {
+    // У регулярной задачи день вхождения отличается от даты старта.
+    const weeklyLater: Occurrence = {
+      task: makeTask(EARLY, 'medium', '2026-09-01'),
+      date: '2026-09-22',
+      done: false,
+    };
+    const plainEarlier = makeOccurrence(MIDDLE, 'medium', '2026-09-15');
+
+    expect(sortOccurrences([weeklyLater, plainEarlier]).map((item) => item.date)).toEqual([
+      '2026-09-15',
+      '2026-09-22',
+    ]);
+  });
+
+  it('при полностью равных ключах сохраняет исходный порядок', () => {
+    const first: Occurrence = { ...makeOccurrence(EARLY, 'medium'), done: true };
+    const second = makeOccurrence(EARLY, 'medium');
+
+    const sorted = sortOccurrences([first, second]);
+
+    expect(sorted[0]).toBe(first);
+    expect(sorted[1]).toBe(second);
   });
 });
 

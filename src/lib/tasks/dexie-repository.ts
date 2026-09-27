@@ -6,40 +6,75 @@
  *
  * Модуль тестами не покрывается: это и есть слой доступа к базе, а автотесты
  * проекта не обращаются к базам данных вообще (docs/code_style.md, «Тесты»).
- * Логика, общая с хранилищем в памяти, вынесена в чистые модули sort.ts и text.ts
- * и проверяется там.
+ * Логика, общая с хранилищем в памяти, вынесена в чистые модули recurrence.ts,
+ * sort.ts и text.ts и проверяется там.
  */
 
 import Dexie from 'dexie';
 import type { Table } from 'dexie';
 import { createId } from './id';
-import { sortTasksByDate, sortTasksForDay } from './sort';
+import { occurrencesInRange, occursOn } from './recurrence';
+import { sortOccurrences, sortTasksByDate } from './sort';
 import { DEFAULT_SEARCH_LIMIT, matchesSearchQuery, parseSearchQuery, tokenize } from './text';
-import type { NewTask, Task, TaskPatch, TaskRepository } from './types';
+import type {
+  Completion,
+  NewTask,
+  Occurrence,
+  Recurrence,
+  Task,
+  TaskPatch,
+  TaskRepository,
+} from './types';
 
 /** Имя базы в IndexedDB. */
 const DATABASE_NAME = 'secretar';
 
-/** Версия схемы. Меняется только добавлением новой версии Dexie, не правкой этой. */
-const SCHEMA_VERSION = 1;
+/** Версия схемы. Меняется только добавлением новой версии Dexie, не правкой прежних. */
+const SCHEMA_VERSION = 2;
 
 /**
- * Схема таблицы `tasks`: первичный ключ и индексы.
+ * Схема таблицы `tasks` версии 1: первичный ключ и индексы.
  * `date` — выборка дня и диапазона; `priority` и `[priority+date]` — отбор по
  * приоритету, в том числе внутри диапазона дат; `*searchTokens` — multiEntry-индекс
  * поиска; `updatedAt` — порядок последних изменений.
  */
 const TASKS_SCHEMA = 'id, date, priority, [priority+date], *searchTokens, updatedAt';
 
+/**
+ * Схема таблицы `tasks` версии 2: добавлен индекс `recurrence`. Он отделяет
+ * регулярные задачи от нерегулярных и по дате не сужает ничего — это прямая цена
+ * решения Р-15: у правила повторения вхождений в базе нет, индексировать нечего.
+ */
+const TASKS_SCHEMA_V2 = 'id, date, priority, recurrence, [priority+date], *searchTokens, updatedAt';
+
+/**
+ * Схема таблицы `completions` (требование Т-5, решение Р-16): составной первичный ключ
+ * «задача + день повторения», отдельные индексы — для каскадного удаления по задаче
+ * и для выборки отметок дня или диапазона.
+ */
+const COMPLETIONS_SCHEMA = '[taskId+occurrenceDate], taskId, occurrenceDate';
+
+/** Значения `recurrence`, у которых бывают вхождения помимо дня старта. */
+const RECURRING: readonly Recurrence[] = ['daily', 'weekly', 'monthly', 'yearly'];
+
 export class DexieTaskRepository implements TaskRepository {
   private readonly db: Dexie;
 
   private readonly tasks: Table<Task, string>;
 
+  private readonly completions: Table<Completion, [string, string]>;
+
   constructor(databaseName: string = DATABASE_NAME) {
     this.db = new Dexie(databaseName);
-    this.db.version(SCHEMA_VERSION).stores({ tasks: TASKS_SCHEMA });
+    // Версия 1 оставлена как есть: применённые миграции не правятся. Функция upgrade не
+    // нужна — поле `recurrence` записывалось всем задачам и в версии 1, а индекс по
+    // существующим записям строит сам IndexedDB.
+    this.db.version(1).stores({ tasks: TASKS_SCHEMA });
+    this.db
+      .version(SCHEMA_VERSION)
+      .stores({ tasks: TASKS_SCHEMA_V2, completions: COMPLETIONS_SCHEMA });
     this.tasks = this.db.table<Task, string>('tasks');
+    this.completions = this.db.table<Completion, [string, string]>('completions');
   }
 
   async create(data: NewTask): Promise<Task> {
@@ -49,7 +84,7 @@ export class DexieTaskRepository implements TaskRepository {
       text: data.text,
       date: data.date,
       priority: data.priority,
-      recurrence: 'none',
+      recurrence: data.recurrence,
       searchTokens: tokenize(data.text),
       createdAt: now,
       updatedAt: now,
@@ -60,17 +95,83 @@ export class DexieTaskRepository implements TaskRepository {
     return task;
   }
 
-  async listByDate(date: string): Promise<Task[]> {
-    const found = await this.tasks.where('date').equals(date).toArray();
-
-    return sortTasksForDay(found);
+  /**
+   * Набор ключей отметок `${taskId}|${occurrenceDate}` за день или диапазон.
+   * Форма ключа та же, что в реализации в памяти, — реализации не разойдутся.
+   */
+  private static completionKeys(completions: readonly Completion[]): Set<string> {
+    return new Set(
+      completions.map((completion) => `${completion.taskId}|${completion.occurrenceDate}`),
+    );
   }
 
-  async listByRange(from: string, to: string): Promise<Task[]> {
-    // Границы включительно; даты плавающие и сравниваются как строки.
-    const found = await this.tasks.where('date').between(from, to, true, true).toArray();
+  async listOccurrencesByDate(date: string): Promise<Occurrence[]> {
+    // Нерегулярные задачи отбираются индексом по дате, регулярные — индексом по
+    // повторению: множества не пересекаются, третьего значения в типе нет,
+    // поэтому вхождение не может попасть в результат дважды.
+    const plain = await this.tasks
+      .where('date')
+      .equals(date)
+      .filter((task) => task.recurrence === 'none')
+      .toArray();
+    const recurring = await this.tasks
+      .where('recurrence')
+      .anyOf(RECURRING as Recurrence[])
+      .filter((task) => task.date <= date && occursOn(task.date, task.recurrence, date))
+      .toArray();
+    const done = DexieTaskRepository.completionKeys(
+      await this.completions.where('occurrenceDate').equals(date).toArray(),
+    );
 
-    return sortTasksByDate(found);
+    return sortOccurrences(
+      [...plain, ...recurring].map((task) => ({
+        task,
+        date,
+        done: done.has(`${task.id}|${date}`),
+      })),
+    );
+  }
+
+  async listOccurrencesByRange(from: string, to: string): Promise<Occurrence[]> {
+    // Границы включительно; даты плавающие и сравниваются как строки.
+    const plain = await this.tasks
+      .where('date')
+      .between(from, to, true, true)
+      .filter((task) => task.recurrence === 'none')
+      .toArray();
+    const recurring = await this.tasks
+      .where('recurrence')
+      .anyOf(RECURRING as Recurrence[])
+      .filter((task) => task.date <= to)
+      .toArray();
+    // Отметки диапазон тоже читает: поле `done` обязательное и врать не должно.
+    const done = DexieTaskRepository.completionKeys(
+      await this.completions.where('occurrenceDate').between(from, to, true, true).toArray(),
+    );
+
+    const occurrences: Occurrence[] = plain.map((task) => ({
+      task,
+      date: task.date,
+      done: done.has(`${task.id}|${task.date}`),
+    }));
+
+    for (const task of recurring) {
+      for (const date of occurrencesInRange(task.date, task.recurrence, from, to)) {
+        occurrences.push({ task, date, done: done.has(`${task.id}|${date}`) });
+      }
+    }
+
+    return sortOccurrences(occurrences);
+  }
+
+  async setCompleted(taskId: string, occurrenceDate: string, done: boolean): Promise<void> {
+    if (done) {
+      await this.completions.put({ taskId, occurrenceDate, completedAt: Date.now() });
+
+      return;
+    }
+
+    await this.completions.delete([taskId, occurrenceDate]);
   }
 
   async get(id: string): Promise<Task | null> {
@@ -104,8 +205,12 @@ export class DexieTaskRepository implements TaskRepository {
   }
 
   async remove(id: string): Promise<boolean> {
-    return this.db.transaction('rw', this.tasks, async () => {
+    // Транзакция перечисляет обе таблицы: без второй Dexie бросит NotFoundError на
+    // записи в `completions`. Каскад обещан в docs/architecture_storage.md.
+    return this.db.transaction('rw', this.tasks, this.completions, async () => {
       const deleted = await this.tasks.where('id').equals(id).delete();
+
+      await this.completions.where('taskId').equals(id).delete();
 
       return deleted > 0;
     });

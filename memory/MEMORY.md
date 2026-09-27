@@ -15,7 +15,8 @@ type: project
 
 ## Файлы памяти
 - [new-session-prompt.md](new-session-prompt.md) — готовый промпт для следующей сессии. Перезаписывается целиком в конце каждой сессии.
-- [feedback_tooling.md](feedback_tooling.md) — грабли самого Claude Code и подтверждённые обходы: блокировка записи в `.claude/settings.json` из режима auto mode, кэширование хуков на момент старта сессии.
+- [feedback_tooling.md](feedback_tooling.md) — грабли самого Claude Code и подтверждённые обходы: блокировка записи в `.claude/settings.json` из режима auto mode, кэширование хуков на момент старта сессии, обход неподключённого расширения Chrome через `playwright-core`.
+- [progress_recurrence_check.md](progress_recurrence_check.md) — что именно проверено на живом приложении по этапу повторений и отметок, и каким способом.
 
 ## Отчёты агентов
 Кладутся сюда же, имя не начинается с `report`: `progress_*.md`, `findings_*.md`, `notes_*.md`, `audit_*.md`. Запись — дописыванием через Bash. Правила — [../docs/rules_work.md](../docs/rules_work.md).

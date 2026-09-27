@@ -6,7 +6,7 @@
  * идентификатор задачи — UUID v7, он сортируется по времени создания как строка.
  */
 
-import type { Priority, Task } from './types';
+import type { Occurrence, Priority, Task } from './types';
 
 /** Вес приоритета: чем меньше, тем выше место в списке. */
 const PRIORITY_WEIGHT: Record<Priority, number> = {
@@ -30,9 +30,18 @@ export function compareTasksInDay(a: Task, b: Task): number {
   return a.id < b.id ? -1 : 1;
 }
 
-/** Список задач одного дня в порядке показа. Исходный массив не меняется. */
-export function sortTasksForDay(tasks: readonly Task[]): Task[] {
-  return [...tasks].sort(compareTasksInDay);
+/**
+ * Вхождения в порядке показа: по дню вхождения, внутри дня — как в списке дня.
+ * Порядок — часть контракта хранилища, у обеих реализаций он обязан совпадать.
+ */
+export function sortOccurrences(occurrences: readonly Occurrence[]): Occurrence[] {
+  return [...occurrences].sort((a, b) => {
+    if (a.date === b.date) {
+      return compareTasksInDay(a.task, b.task);
+    }
+
+    return a.date < b.date ? -1 : 1;
+  });
 }
 
 /** Список задач нескольких дней: по дате, внутри дня — как в списке дня. */

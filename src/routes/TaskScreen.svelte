@@ -1,10 +1,11 @@
 <script lang="ts">
   /**
-   * Полноэкранный просмотр задачи (требование Т-28): весь текст целиком, дата и приоритет.
+   * Полноэкранный просмотр задачи (требование Т-28): весь текст целиком, дата, приоритет
+   * и повторение. Отметки выполнения здесь нет намеренно — решение Р-29: она ставится в списке дня.
    * Отдельный маршрут #/task/<id>, поэтому кнопка «назад» в браузере возвращает к календарю.
    */
   import type { Task } from '../lib/tasks/types';
-  import { PRIORITY_LABELS } from '../lib/tasks/types';
+  import { PRIORITY_LABELS, RECURRENCE_LABELS } from '../lib/tasks/types';
   import { PRIORITY_COLOR } from '../lib/priority';
   import { formatLongDate } from '../lib/date';
   import { taskRepository } from '../lib/task-repository';
@@ -104,6 +105,10 @@
           <span class="mark" style="background: {PRIORITY_COLOR[task.priority]}"></span>
           {PRIORITY_LABELS[task.priority]}
         </dd>
+      </div>
+      <div class="meta-row">
+        <dt class="meta-label">Повторение</dt>
+        <dd class="meta-value">{RECURRENCE_LABELS[task.recurrence]}</dd>
       </div>
     </dl>
 

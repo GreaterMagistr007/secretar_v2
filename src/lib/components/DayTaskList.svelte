@@ -3,10 +3,14 @@
    * Список задач выбранного дня (требование Т-27). Появляется под календарём только
    * когда день выбран — за это отвечает вызывающий экран.
    *
+   * На вход приходят вхождения повторений этого дня, а не задачи: у регулярной задачи
+   * отметка выполнения принадлежит дню (требование Т-5, решение Р-16), поэтому флажок
+   * работает с парой «задача + день». Сохранением отметки занимается вызывающий экран.
+   *
    * Текст задачи умещается в одну строку и обрезается многоточием; полный текст
    * открывается на экране задачи (требование Т-28).
    */
-  import type { Task } from '../tasks/types';
+  import type { Occurrence } from '../tasks/types';
   import { PRIORITY_LABELS } from '../tasks/types';
   import { PRIORITY_COLOR } from '../priority';
   import { formatLongDate } from '../date';
@@ -14,16 +18,19 @@
 
   let {
     date,
-    tasks,
+    occurrences,
     loading,
     error,
+    onToggle,
   }: {
     /** Выбранный день в виде YYYY-MM-DD. */
     date: string;
-    tasks: Task[];
+    occurrences: Occurrence[];
     loading: boolean;
     /** Сообщение об ошибке чтения задач; null, когда ошибки нет. */
     error: string | null;
+    /** Переключение отметки выполнения одного вхождения. */
+    onToggle: (occurrence: Occurrence, done: boolean) => void;
   } = $props();
 </script>
 
@@ -34,16 +41,32 @@
     <p class="hint">Загрузка задач…</p>
   {:else if error !== null}
     <p class="hint hint--error" role="alert">{error}</p>
-  {:else if tasks.length === 0}
+  {:else if occurrences.length === 0}
     <p class="hint">На этот день задач нет.</p>
   {:else}
     <ul class="list">
-      {#each tasks as task (task.id)}
+      {#each occurrences as occurrence (`${occurrence.task.id}|${occurrence.date}`)}
         <li class="item">
-          <a class="link" href={router.hrefTask(task.id)}>
-            <span class="mark" style="background: {PRIORITY_COLOR[task.priority]}"></span>
-            <span class="text">{task.text}</span>
-            <span class="priority">{PRIORITY_LABELS[task.priority]} приоритет</span>
+          <input
+            class="check"
+            type="checkbox"
+            checked={occurrence.done}
+            aria-label={occurrence.done ? 'Снять отметку выполнения' : 'Отметить выполненной'}
+            onchange={(event) => {
+              // Браузер уже переключил флажок сам; возвращаем его к данным, а верное
+              // значение придёт с перечитыванием списка — иначе при отказе хранилища
+              // отметка останется стоять на экране, которого нет в базе.
+              event.currentTarget.checked = occurrence.done;
+              onToggle(occurrence, !occurrence.done);
+            }}
+          />
+          <a class="link" href={router.hrefTask(occurrence.task.id)}>
+            <span
+              class="mark"
+              style="background: {PRIORITY_COLOR[occurrence.task.priority]}"
+            ></span>
+            <span class="text" class:text--done={occurrence.done}>{occurrence.task.text}</span>
+            <span class="priority">{PRIORITY_LABELS[occurrence.task.priority]} приоритет</span>
           </a>
         </li>
       {/each}
@@ -88,11 +111,9 @@
     list-style: none;
   }
 
+  /* Оформление карточки лежит на элементе списка, а не на ссылке: рядом со ссылкой
+     стоит флажок, и обводка карточки обязана охватывать оба. */
   .item {
-    min-width: 0;
-  }
-
-  .link {
     display: flex;
     gap: var(--space-sm);
     align-items: center;
@@ -102,6 +123,21 @@
     border-radius: var(--radius-md);
     background: var(--color-surface);
     box-shadow: var(--shadow-card);
+  }
+
+  .check {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    accent-color: var(--color-primary);
+  }
+
+  .link {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: center;
+    min-width: 0;
+    flex: 1;
     color: var(--color-text);
     text-decoration: none;
   }
@@ -125,6 +161,11 @@
     font-size: 0.95rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .text--done {
+    color: var(--color-text-muted);
+    text-decoration: line-through;
   }
 
   /* Приоритет назван словами только для озвучки: на экране он показан цветной меткой. */

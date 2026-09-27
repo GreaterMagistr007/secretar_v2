@@ -23,3 +23,25 @@ type: feedback
 **Побочный эффект:** снятие скриншота дважды завершилось ошибкой `CDP sendCommand "Page.captureScreenshot" timed out after 30000ms` — таймаут CDP истекал, пока ждали подтверждения.
 **Что сделано:** в проектный `.claude/settings.json` добавлены `mcp__claude-in-chrome__*`, `Bash`, `Monitor`, `Agent`, `WebFetch`, `WebSearch` и фоновые задачи — и в `permissions.allow`, и отдельными блоками хуков `PreToolUse` и `PermissionRequest`. Применяется со следующей сессии (хуки кэшируются на старте).
 **Чего это не снимает:** собственные диалоги расширения Claude in Chrome в браузере — они настраиваются в самом расширении, разрешением для конкретного сайта.
+
+## Расширение Claude in Chrome может не подключиться — обход без новых зависимостей (2026-09-27)
+`mcp__claude-in-chrome__tabs_context_mcp` вернул «Browser extension is not connected»,
+`list_connected_browsers` — пустой список. Перезапуск Chrome владельцем в этот момент был
+невозможен, а браузерная проверка требовалась: слой Dexie юнит-тестами не покрывается, и ветка
+`anyOf` по обычному индексу типами не подтверждается.
+
+**Обход, сработавший без скачиваний и без правки `package.json`:** на машине уже есть
+`playwright-core` в кэше npx (`~/.npm/_npx/*/node_modules/playwright-core`) и браузеры Playwright
+(`~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` — путь именно `chrome-linux64`,
+не `chrome-linux`, старый путь даёт «executable doesn't exist»). Скрипт на Node с импортом
+`playwright-core/index.mjs` и `chromium.launch({ executablePath, args: ['--no-sandbox'] })`
+поднимает настоящий браузер, открывает dev-сервер в контейнере и работает с IndexedDB.
+
+Полезные приёмы из этой проверки:
+- имитация базы прежней версии: `indexedDB.deleteDatabase`, затем ручное создание стора с
+  индексами версии 1. **Версию брать 10, а не 1:** Dexie нумерует IndexedDB как «версия × 10»,
+  поэтому Dexie-версия 1 — это IDB 10, а версия 2 — IDB 20;
+- проверка ветки ошибки без правки кода: подмена `IDBObjectStore.prototype.put` на бросающую
+  функцию прямо в странице — так проверено, что сообщение об ошибке действительно показывается;
+- ложный FAIL в собственном скрипте: сравнение `document.activeElement` со строкой `select` не
+  сходится, потому что у `<select>` свойство `type` равно `select-one`. Приложение было верным.

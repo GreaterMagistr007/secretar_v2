@@ -1,11 +1,11 @@
 /**
- * Проверка данных формы создания задачи (требования Т-2, Т-3, Т-24).
+ * Проверка данных формы создания задачи (требования Т-2, Т-3, Т-4, Т-24).
  *
  * Исключения не бросаются: форме нужен полный список проблем сразу, а не первая
  * из них, поэтому результат — размеченное объединение с массивом сообщений.
  */
 
-import type { NewTask, Priority } from './types';
+import type { NewTask, Priority, Recurrence } from './types';
 
 /** Сообщения об ошибках — на русском, показываются пользователю как есть. */
 export const VALIDATION_MESSAGES = {
@@ -13,23 +13,28 @@ export const VALIDATION_MESSAGES = {
   dateFormat: 'Дата должна быть в формате ГГГГ-ММ-ДД',
   dateUnreal: 'Такой даты нет в календаре',
   priorityUnknown: 'Неизвестный приоритет',
+  recurrenceUnknown: 'Неизвестное повторение',
 } as const;
 
 /** Результат проверки: либо разобранное значение, либо список ошибок. */
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; errors: string[] };
 
 /**
- * Данные формы до проверки: приоритет приходит строкой, потому что в форме он
- * выбирается из разметки и может не принадлежать перечню.
+ * Данные формы до проверки: приоритет и повторение приходят строками, потому что в
+ * форме они выбираются из разметки и могут не принадлежать перечню.
  */
 export interface NewTaskInput {
   text: string;
   date: string;
   priority: string;
+  recurrence: string;
 }
 
 /** Закрытый перечень приоритетов (требование Т-24). */
 const PRIORITIES: readonly Priority[] = ['low', 'medium', 'high'];
+
+/** Закрытый перечень значений регулярности (требование Т-4). */
+const RECURRENCES: readonly Recurrence[] = ['none', 'daily', 'weekly', 'monthly', 'yearly'];
 
 /** Формат плавающей даты YYYY-MM-DD (docs/architecture_storage.md, раздел «Даты и часовой пояс»). */
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -37,6 +42,11 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 /** Значение принадлежит перечню приоритетов. */
 export function isPriority(value: string): value is Priority {
   return (PRIORITIES as readonly string[]).includes(value);
+}
+
+/** Значение принадлежит перечню значений регулярности. */
+export function isRecurrence(value: string): value is Recurrence {
+  return (RECURRENCES as readonly string[]).includes(value);
 }
 
 /** Високосный ли год по григорианскому правилу. */
@@ -76,6 +86,7 @@ export function validateNewTask(input: NewTaskInput): ValidationResult<NewTask> 
   const errors: string[] = [];
   const text = input.text.trim();
   const priority = isPriority(input.priority) ? input.priority : null;
+  const recurrence = isRecurrence(input.recurrence) ? input.recurrence : null;
 
   if (text.length === 0) {
     errors.push(VALIDATION_MESSAGES.textEmpty);
@@ -91,10 +102,14 @@ export function validateNewTask(input: NewTaskInput): ValidationResult<NewTask> 
     errors.push(VALIDATION_MESSAGES.priorityUnknown);
   }
 
-  // Проверка priority повторяется ради сужения типа: выше она добавила сообщение.
-  if (errors.length > 0 || priority === null) {
+  if (recurrence === null) {
+    errors.push(VALIDATION_MESSAGES.recurrenceUnknown);
+  }
+
+  // Проверки priority и recurrence повторяются ради сужения типа: выше они добавили сообщения.
+  if (errors.length > 0 || priority === null || recurrence === null) {
     return { ok: false, errors };
   }
 
-  return { ok: true, value: { text, date: input.date, priority } };
+  return { ok: true, value: { text, date: input.date, priority, recurrence } };
 }
