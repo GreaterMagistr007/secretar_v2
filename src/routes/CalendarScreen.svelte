@@ -78,8 +78,17 @@
   let dayError = $state<string | null>(null);
 
   /**
+   * День, для которого фактически прочитан dayOccurrences. Нужен, чтобы отличить перечитывание
+   * того же дня от перехода на другой: при переходе прежний список показывать нельзя — он
+   * оказался бы под заголовком нового дня, и щелчок по флажку записал бы отметку не на тот
+   * день, который назван в заголовке.
+   */
+  let loadedDate = $state<string | null>(null);
+
+  /**
    * Ошибка сохранения отметки выполнения — отдельно от dayError: эффект списка дня зависит
-   * от reloadToken и первым делом обнуляет dayError, поэтому сообщение стёрлось бы до отрисовки.
+   * от dayReloadToken и первым делом обнуляет dayError, поэтому сообщение стёрлось бы
+   * до отрисовки. Сам эффект сбрасывает toggleError при смене дня.
    */
   let toggleError = $state<string | null>(null);
 
@@ -209,6 +218,7 @@
 
     if (date === null) {
       dayOccurrences = [];
+      loadedDate = null;
       dayLoading = false;
       dayError = null;
 
@@ -228,6 +238,7 @@
         }
 
         dayOccurrences = occurrences;
+        loadedDate = date;
         dayLoading = false;
       })
       .catch(() => {
@@ -236,6 +247,7 @@
         }
 
         dayOccurrences = [];
+        loadedDate = null;
         dayError = 'Не удалось прочитать задачи дня.';
         dayLoading = false;
       });
@@ -305,11 +317,20 @@
    * стёрло бы показанное сообщение — эффект списка обнуляет toggleError.
    */
   async function toggleCompletion(occurrence: Occurrence, done: boolean): Promise<void> {
+    // Пока идёт запись, пользователь может выбрать другой день. Результат тогда не наш:
+    // сообщение об отказе встало бы под чужим списком, а перечитывание тронуло бы чужой день.
+    const day = occurrence.date;
+
     try {
-      await taskRepository.setCompleted(occurrence.task.id, occurrence.date, done);
-      dayReloadToken += 1;
+      await taskRepository.setCompleted(occurrence.task.id, day, done);
+
+      if (calendarState.selectedDate === day) {
+        dayReloadToken += 1;
+      }
     } catch {
-      toggleError = 'Не удалось сохранить отметку.';
+      if (calendarState.selectedDate === day) {
+        toggleError = 'Не удалось сохранить отметку.';
+      }
     }
   }
 
@@ -395,6 +416,7 @@
       date={calendarState.selectedDate}
       occurrences={dayOccurrences}
       loading={dayLoading}
+      stale={loadedDate !== calendarState.selectedDate}
       error={dayError}
       onToggle={toggleCompletion}
     />

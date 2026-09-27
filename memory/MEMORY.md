@@ -18,5 +18,12 @@ type: project
 - [feedback_tooling.md](feedback_tooling.md) — грабли самого Claude Code и подтверждённые обходы: блокировка записи в `.claude/settings.json` из режима auto mode, кэширование хуков на момент старта сессии, обход неподключённого расширения Chrome через `playwright-core`.
 - [progress_recurrence_check.md](progress_recurrence_check.md) — что именно проверено на живом приложении по этапу повторений и отметок, и каким способом.
 
+## Отчёты по этапу повторений и отметок (2026-09-27)
+- [findings_plan_stage_03.md](findings_plan_stage_03.md) — ревью плана этапа скептиком до начала работ, 20 находок.
+- [progress_recurrence_data.md](progress_recurrence_data.md) — ход работы агента по слою данных (шаги 1–6 плана).
+- [progress_recurrence_ui.md](progress_recurrence_ui.md) — ход работы агента по экранам (шаги 7–10 плана).
+- [findings_review_a1.md](findings_review_a1.md), [findings_review_b1.md](findings_review_b1.md) — первый раунд саморевью: корректность и соответствие задаче.
+- [findings_review_a2.md](findings_review_a2.md), [findings_review_b2.md](findings_review_b2.md) — второй раунд саморевью.
+
 ## Отчёты агентов
 Кладутся сюда же, имя не начинается с `report`: `progress_*.md`, `findings_*.md`, `notes_*.md`, `audit_*.md`. Запись — дописыванием через Bash. Правила — [../docs/rules_work.md](../docs/rules_work.md).
