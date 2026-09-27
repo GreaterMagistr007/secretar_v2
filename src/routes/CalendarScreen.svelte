@@ -61,21 +61,40 @@
   }
 
   /**
-   * Сегодняшний день, взятый при создании экрана. Используется только для оформления:
-   * подсветка текущего дня в сетке и текущего месяца в выборе месяца. В установленной PWA
-   * экран живёт без перезагрузки, поэтому после полуночи подсветка отстаёт на день — цена
-   * известна и записана в docs/mechanic_tasks.md.
-   *
-   * Дата новой задачи так браться НЕ ДОЛЖНА: там нужен настоящий сегодняшний день на момент
-   * открытия формы, иначе задача молча сохранится на вчера. Для неё вызывается todayIso().
+   * Сегодняшний день. Реактивный и освежается, когда экран оживает: установленная PWA живёт
+   * без перезагрузки сутками, и замороженное «сегодня» — это не только отставшая подсветка.
+   * Через выбранный день оно доходит до данных: вечером выбран сегодняшний день, утром нажата
+   * кнопка «+», и форма подставляет вчерашнее число — задача сохраняется не на тот день, а
+   * править её в интерфейсе нечем (требование Т-28 — только просмотр).
    */
-  const today = new Date();
-  const todayYear = today.getFullYear();
-  const todayMonth = today.getMonth();
-  const todayIsoDate = todayIso();
+  let todayIsoDate = $state(todayIso());
+
+  const todayYear = $derived(Number(todayIsoDate.slice(0, 4)));
+  const todayMonth = $derived(Number(todayIsoDate.slice(5, 7)) - 1);
+
+  /**
+   * Сверяет «сегодня» с системными часами. Вызывается, когда вкладка снова видима или окно
+   * получает фокус — там же, где экран и так оживает после ночи в кармане.
+   *
+   * При смене суток выбор дня снимается: он относился к прежним суткам, а оставить его —
+   * значит подставить вчерашнюю дату в форму создания.
+   */
+  function refreshToday(): void {
+    const current = todayIso();
+
+    if (current === todayIsoDate) {
+      return;
+    }
+
+    todayIsoDate = current;
+    calendarState.clearSelection();
+  }
 
   let pickerOpen = $state(false);
-  let pickerYear = $state(todayYear);
+  // Начальное значение осмысленное, но недолговечное: openPicker всегда ставит год
+  // показываемого месяца перед показом. Берётся из todayIso(), а не из todayIsoDate,
+  // чтобы не захватывать реактивное состояние в момент создания компонента.
+  let pickerYear = $state(Number(todayIso().slice(0, 4)));
 
   /** Вхождения задач во все дни, попавшие в сетку: из них собираются метки. */
   let monthOccurrences = $state<Occurrence[]>([]);
@@ -366,7 +385,8 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onfocus={refreshToday} />
+<svelte:document onvisibilitychange={refreshToday} />
 
 <section class="screen">
   <header class="header">

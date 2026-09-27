@@ -28,6 +28,7 @@ type: project
 - [findings_review_a4.md](findings_review_a4.md), [findings_review_b4.md](findings_review_b4.md) — четвёртый раунд саморевью.
 - [findings_review_a5.md](findings_review_a5.md), [findings_review_b5.md](findings_review_b5.md) — пятый раунд саморевью.
 - [findings_review_a6.md](findings_review_a6.md), [findings_review_b6.md](findings_review_b6.md) — шестой раунд саморевью: найдено устаревание сегодняшней даты в долгоживущем экране.
+- [findings_review_a7.md](findings_review_a7.md), [findings_review_b7.md](findings_review_b7.md) — седьмой раунд саморевью: показано, что исправление шестого раунда было неполным.
 
 ## Отчёты прошлых этапов
 Оболочка PWA и первый этап: [progress_stage_01.md](progress_stage_01.md), [progress_app_shell.md](progress_app_shell.md). Галерея макетов календаря: [progress_gallery_a.md](progress_gallery_a.md), [progress_gallery_b.md](progress_gallery_b.md), [progress_gallery_c.md](progress_gallery_c.md). Темы и шрифты: [progress_themes_a.md](progress_themes_a.md), [progress_themes_b.md](progress_themes_b.md), [progress_themes_c.md](progress_themes_c.md), [progress_webfonts.md](progress_webfonts.md), [findings_ui_test.md](findings_ui_test.md). Сущность «Задача»: [progress_tasks_data.md](progress_tasks_data.md), [progress_tasks_ui.md](progress_tasks_ui.md).

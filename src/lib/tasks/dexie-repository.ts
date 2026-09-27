@@ -58,7 +58,7 @@ const TASKS_SCHEMA_V2 = 'id, date, priority, recurrence, [priority+date], *searc
 const COMPLETIONS_SCHEMA = '[taskId+occurrenceDate], taskId, occurrenceDate';
 
 /** Значения `recurrence`, у которых бывают вхождения помимо дня старта. */
-const RECURRING: Recurrence[] = ['daily', 'weekly', 'monthly', 'yearly'];
+const RECURRING: readonly Recurrence[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
 export class DexieTaskRepository implements TaskRepository {
   private readonly db: Dexie;
