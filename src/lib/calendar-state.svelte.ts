@@ -8,13 +8,21 @@
  * Файл назван *.svelte.ts, потому что руна $state компилируется только в .svelte и .svelte.ts.
  */
 
-import { isIsoDate } from './date';
+import { isIsoDate, todayIso } from './date';
 
 const today = new Date();
 
 let viewYear = $state(today.getFullYear());
 let viewMonth = $state(today.getMonth());
 let selectedDate = $state<string | null>(null);
+
+/**
+ * Сутки, в которые сделан выбор дня. Нужны, потому что выбор живёт в модуле и переживает
+ * размонтирование экрана календаря: пользователь выбирает день вечером, уходит на экран задачи,
+ * возвращается утром — и выбор всё ещё указывает на вчера. Форма создания взяла бы эту дату,
+ * а править сохранённую задачу в интерфейсе нечем (требование Т-28 — только просмотр).
+ */
+let selectedOn: string | null = null;
 
 export const calendarState = {
   /** Год показываемого месяца. */
@@ -50,6 +58,7 @@ export const calendarState = {
     const [year, month] = date.split('-').map(Number);
 
     selectedDate = date;
+    selectedOn = todayIso();
     viewYear = year;
     viewMonth = month - 1;
   },
@@ -57,5 +66,25 @@ export const calendarState = {
   /** Снимает выбор: список задач дня при этом исчезает. */
   clearSelection(): void {
     selectedDate = null;
+    selectedOn = null;
+  },
+
+  /**
+   * Снимает выбор, сделанный в прежние сутки, и сообщает, снял ли.
+   *
+   * Вызывается и при создании экрана календаря, и при его пробуждении: подписки на события
+   * живут только пока экран смонтирован, а выбор — дольше, поэтому одной проверки на пробуждение
+   * мало. Маршрут, который она закрывает: выбрать день вечером, уйти на экран задачи, вернуться
+   * утром — без этой сверки форма создания подставила бы вчерашнее число.
+   */
+  dropStaleSelection(): boolean {
+    if (selectedDate === null || selectedOn === todayIso()) {
+      return false;
+    }
+
+    selectedDate = null;
+    selectedOn = null;
+
+    return true;
   },
 };

@@ -80,15 +80,15 @@
    * значит подставить вчерашнюю дату в форму создания.
    */
   function refreshToday(): void {
-    const current = todayIso();
-
-    if (current === todayIsoDate) {
-      return;
-    }
-
-    todayIsoDate = current;
-    calendarState.clearSelection();
+    todayIsoDate = todayIso();
+    calendarState.dropStaleSelection();
   }
+
+  // Сверка при создании экрана, а не только на пробуждении: подписки ниже живут, пока экран
+  // смонтирован, а выбранный день лежит в модуле и переживает уход на экран задачи. Без этой
+  // строки маршрут «выбрал день вечером → ушёл на задачу → вернулся утром» снова подставил бы
+  // в форму вчерашнее число.
+  calendarState.dropStaleSelection();
 
   let pickerOpen = $state(false);
   // Начальное значение осмысленное, но недолговечное: openPicker всегда ставит год
