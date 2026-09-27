@@ -27,12 +27,29 @@ interface Match {
   path: string;
 }
 
+/**
+ * Раскодирует идентификатор задачи из адреса.
+ *
+ * `decodeURIComponent` бросает `URIError` на неверной процентной последовательности — хватит
+ * адреса `#/task/%`, набранного руками или присланного в ссылке. Разбор адреса выполняется при
+ * инициализации модуля, то есть на старте приложения, и непойманное исключение сорвало бы
+ * загрузку целиком: белый экран вместо календаря. Непонятный идентификатор — это просто
+ * несуществующая задача, поэтому возвращается пустая строка и маршрут сводится к календарю.
+ */
+function decodeTaskId(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return '';
+  }
+}
+
 /** Разбирает хэш адреса в маршрут; всё непонятное сводится к календарю. */
 function parseHash(hash: string): Match {
   const path = hash.replace(/^#/, '').replace(/\/+$/, '');
 
   if (path.startsWith(TASK_PREFIX)) {
-    const id = decodeURIComponent(path.slice(TASK_PREFIX.length));
+    const id = decodeTaskId(path.slice(TASK_PREFIX.length));
 
     if (id !== '') {
       return { route: '/task', taskId: id, path };
