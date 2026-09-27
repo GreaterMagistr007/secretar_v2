@@ -8,7 +8,7 @@
  * Файл назван *.svelte.ts, потому что руна $state компилируется только в .svelte и .svelte.ts.
  */
 
-import { isIsoDate, todayIso } from './date';
+import { isIsoDate, isStaleSelection, todayIso } from './date';
 
 const today = new Date();
 
@@ -63,12 +63,6 @@ export const calendarState = {
     viewMonth = month - 1;
   },
 
-  /** Снимает выбор: список задач дня при этом исчезает. */
-  clearSelection(): void {
-    selectedDate = null;
-    selectedOn = null;
-  },
-
   /**
    * Снимает выбор, сделанный в прежние сутки, и сообщает, снял ли.
    *
@@ -77,14 +71,12 @@ export const calendarState = {
    * мало. Маршрут, который она закрывает: выбрать день вечером, уйти на экран задачи, вернуться
    * утром — без этой сверки форма создания подставила бы вчерашнее число.
    */
-  dropStaleSelection(): boolean {
-    if (selectedDate === null || selectedOn === todayIso()) {
-      return false;
+  dropStaleSelection(): void {
+    if (selectedDate === null || !isStaleSelection(selectedOn, todayIso())) {
+      return;
     }
 
     selectedDate = null;
     selectedOn = null;
-
-    return true;
   },
 };

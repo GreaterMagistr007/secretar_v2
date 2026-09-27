@@ -17,7 +17,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text'],
-      include: ['src/lib/tasks/**/*.ts'],
+      include: ['src/lib/tasks/**/*.ts', 'src/lib/date.ts'],
       // types.ts — только контракт; dexie-repository.ts и repository.ts — слой
       // доступа к базе, он покрывается не тестами, а проверкой в приложении.
       exclude: [

@@ -71,3 +71,17 @@ export function formatLongDate(iso: string): string {
 
   return `${day} ${MONTHS_GENITIVE[month - 1]} ${year}`;
 }
+
+/**
+ * Устарел ли запомненный выбор: он сделан не в те сутки, что идут сейчас.
+ *
+ * Живёт здесь, а не в calendar-state.svelte.ts, где используется: тот модуль построен на руне
+ * `$state`, а юнит-тесты идут в окружении node без плагина Svelte, и руна там не исполняется.
+ * Чистая проверка вынесена сюда, чтобы её можно было покрыть тестами, а в состоянии календаря
+ * осталось только хранение.
+ *
+ * `recordedOn` равен null, когда ничего не выбрано, — устаревать нечему.
+ */
+export function isStaleSelection(recordedOn: string | null, today: string): boolean {
+  return recordedOn !== null && recordedOn !== today;
+}
