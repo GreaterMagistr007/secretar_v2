@@ -35,6 +35,12 @@ type: project
 - [findings_review_a11.md](findings_review_a11.md), [findings_review_b11.md](findings_review_b11.md) — одиннадцатый раунд: корректность чиста, таймер проверен на переводах часов; документация дала шесть.
 - [findings_review_a12.md](findings_review_a12.md), [findings_review_b12.md](findings_review_b12.md) — двенадцатый раунд, последний: корректность чиста, 19 мутаций все поймались; найдено, что число тестов было вписано задним числом в более ранние записи хронологии, и что пустой файл ронял прогон целиком.
 
+## Замеры макетов галереи под вопрос В-7 (2026-09-27)
+- [notes_gallery_render.md](notes_gallery_render.md) — рендер всех 30 макетов в браузере: живая геометрия сетки, проверка узкого экрана.
+- [notes_gallery_a.md](notes_gallery_a.md) — разбор кода v01–v09, [notes_gallery_c.md](notes_gallery_c.md) — v21–v30.
+- [notes_gallery_b2.md](notes_gallery_b2.md) — разбор кандидатов v11, v13, v16, v17, v19, v20; [notes_gallery_b.md](notes_gallery_b.md) — первый агент по v11–v20, надолго замолчавший и дошедший только до v12.
+Итог отбора — в документации: [../docs/reference_gallery_calendar.md](../docs/reference_gallery_calendar.md).
+
 ## Отчёты прошлых этапов
 Оболочка PWA и первый этап: [progress_stage_01.md](progress_stage_01.md), [progress_app_shell.md](progress_app_shell.md). Галерея макетов календаря: [progress_gallery_a.md](progress_gallery_a.md), [progress_gallery_b.md](progress_gallery_b.md), [progress_gallery_c.md](progress_gallery_c.md). Темы и шрифты: [progress_themes_a.md](progress_themes_a.md), [progress_themes_b.md](progress_themes_b.md), [progress_themes_c.md](progress_themes_c.md), [progress_webfonts.md](progress_webfonts.md), [findings_ui_test.md](findings_ui_test.md). Сущность «Задача»: [progress_tasks_data.md](progress_tasks_data.md), [progress_tasks_ui.md](progress_tasks_ui.md).
 
