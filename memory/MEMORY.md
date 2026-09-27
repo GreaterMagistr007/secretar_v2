@@ -38,7 +38,7 @@ type: project
 ## Замеры макетов галереи под вопрос В-7 (2026-09-27)
 - [notes_gallery_render.md](notes_gallery_render.md) — рендер всех 30 макетов в браузере: живая геометрия сетки, проверка узкого экрана.
 - [notes_gallery_a.md](notes_gallery_a.md) — разбор кода v01–v10, [notes_gallery_c.md](notes_gallery_c.md) — v21–v30.
-- [notes_gallery_b2.md](notes_gallery_b2.md) — разбор кандидатов v11, v13, v16, v17, v19, v20; [notes_gallery_b.md](notes_gallery_b.md) — первый агент по v11–v20, надолго замолчавший и дошедший только до v12.
+- [notes_gallery_b.md](notes_gallery_b.md) — разбор кода v11–v20 (агент надолго замолчал из-за затёртого соседом скрипта, но работу довёл до конца); [notes_gallery_b2.md](notes_gallery_b2.md) — замена, запущенная на время молчания, по шести кандидатам v11, v13, v16, v17, v19, v20. Два независимых разбора шести общих макетов дали совпадающие числа — это сверка, а не дубль.
 Итог отбора — в документации: [../docs/reference_gallery_calendar.md](../docs/reference_gallery_calendar.md).
 
 ## Отчёты прошлых этапов
