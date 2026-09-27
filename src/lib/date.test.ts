@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLongDate, isIsoDate, isStaleSelection, toIsoDate } from './date';
+import { formatLongDate, isIsoDate, isStaleSelection, toIsoDate, todayIso } from './date';
 
 describe('isStaleSelection', () => {
   it('выбор тех же суток не устарел', () => {
@@ -73,5 +73,16 @@ describe('formatLongDate', () => {
   // Интерфейс не должен падать из-за данных, которых не ждали.
   it('непонятную строку возвращает как есть', () => {
     expect(formatLongDate('не дата')).toBe('не дата');
+  });
+});
+
+describe('todayIso', () => {
+  // Сравнение с системными часами, а не с фиксированной датой: тест не должен ломаться завтра.
+  it('отдаёт сегодняшний день по локальному календарю', () => {
+    expect(todayIso()).toBe(toIsoDate(new Date()));
+  });
+
+  it('результат проходит проверку формата', () => {
+    expect(isIsoDate(todayIso())).toBe(true);
   });
 });
