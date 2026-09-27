@@ -24,6 +24,8 @@ type: project
 - [progress_recurrence_ui.md](progress_recurrence_ui.md) — ход работы агента по экранам (шаги 7–10 плана).
 - [findings_review_a1.md](findings_review_a1.md), [findings_review_b1.md](findings_review_b1.md) — первый раунд саморевью: корректность и соответствие задаче.
 - [findings_review_a2.md](findings_review_a2.md), [findings_review_b2.md](findings_review_b2.md) — второй раунд саморевью.
+- [findings_review_a3.md](findings_review_a3.md), [findings_review_b3.md](findings_review_b3.md) — третий раунд саморевью.
+- [findings_review_a4.md](findings_review_a4.md), [findings_review_b4.md](findings_review_b4.md) — четвёртый раунд саморевью.
 
 ## Отчёты агентов
 Кладутся сюда же, имя не начинается с `report`: `progress_*.md`, `findings_*.md`, `notes_*.md`, `audit_*.md`. Запись — дописыванием через Bash. Правила — [../docs/rules_work.md](../docs/rules_work.md).
