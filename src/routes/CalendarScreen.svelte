@@ -60,6 +60,15 @@
     isWeekend: boolean;
   }
 
+  /**
+   * Сегодняшний день, взятый при создании экрана. Используется только для оформления:
+   * подсветка текущего дня в сетке и текущего месяца в выборе месяца. В установленной PWA
+   * экран живёт без перезагрузки, поэтому после полуночи подсветка отстаёт на день — цена
+   * известна и записана в docs/mechanic_tasks.md.
+   *
+   * Дата новой задачи так браться НЕ ДОЛЖНА: там нужен настоящий сегодняшний день на момент
+   * открытия формы, иначе задача молча сохранится на вчера. Для неё вызывается todayIso().
+   */
   const today = new Date();
   const todayYear = today.getFullYear();
   const todayMonth = today.getMonth();
@@ -456,7 +465,7 @@
 
 {#if modalOpen}
   <TaskCreateModal
-    initialDate={calendarState.selectedDate ?? todayIsoDate}
+    initialDate={calendarState.selectedDate ?? todayIso()}
     onSubmit={createTask}
     onClose={closeModal}
   />

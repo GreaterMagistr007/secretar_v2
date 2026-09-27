@@ -58,7 +58,7 @@ const TASKS_SCHEMA_V2 = 'id, date, priority, recurrence, [priority+date], *searc
 const COMPLETIONS_SCHEMA = '[taskId+occurrenceDate], taskId, occurrenceDate';
 
 /** Значения `recurrence`, у которых бывают вхождения помимо дня старта. */
-const RECURRING: readonly Recurrence[] = ['daily', 'weekly', 'monthly', 'yearly'];
+const RECURRING: Recurrence[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
 export class DexieTaskRepository implements TaskRepository {
   private readonly db: Dexie;
@@ -119,7 +119,7 @@ export class DexieTaskRepository implements TaskRepository {
       .toArray();
     const recurring = await this.tasks
       .where('recurrence')
-      .anyOf(RECURRING as Recurrence[])
+      .anyOf(RECURRING)
       .filter((task) => task.date <= date && occursOn(task.date, task.recurrence, date))
       .toArray();
     const done = DexieTaskRepository.completionKeys(
@@ -144,7 +144,7 @@ export class DexieTaskRepository implements TaskRepository {
       .toArray();
     const recurring = await this.tasks
       .where('recurrence')
-      .anyOf(RECURRING as Recurrence[])
+      .anyOf(RECURRING)
       .filter((task) => task.date <= to)
       .toArray();
     // Отметки диапазон тоже читает: поле `done` обязательное и врать не должно.
