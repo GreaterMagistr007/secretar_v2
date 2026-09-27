@@ -54,9 +54,11 @@ export function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
-/** Число дней в месяце; 0 для номера месяца вне диапазона 1…12. */
+/** Число дней в месяце; 0 для номера месяца вне диапазона 1…12 и для нецелых значений. */
 export function daysInMonth(year: number, month: number): number {
-  if (month < 1 || month > 12) {
+  // Проверка на целое число нужна отдельно: NaN не проходит ни одно сравнение,
+  // и без неё обращение к таблице длин вернуло бы undefined вместо обещанного нуля.
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
     return 0;
   }
 

@@ -47,6 +47,16 @@ describe('daysInMonth', () => {
     expect(daysInMonth(2026, 12)).toBe(31);
   });
 
+  // Регрессия: NaN не проходит ни одно сравнение с границами диапазона, и функция
+  // возвращала undefined вместо обещанного нуля.
+  it('нечисловой месяц даёт 0, а не undefined', () => {
+    expect(daysInMonth(2026, Number.NaN)).toBe(0);
+  });
+
+  it('нецелый месяц даёт 0', () => {
+    expect(daysInMonth(2026, 2.5)).toBe(0);
+  });
+
   it('номер месяца вне диапазона даёт 0', () => {
     expect(daysInMonth(2026, 0)).toBe(0);
     expect(daysInMonth(2026, 13)).toBe(0);

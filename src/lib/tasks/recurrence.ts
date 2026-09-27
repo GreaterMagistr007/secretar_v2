@@ -20,9 +20,15 @@ import { daysInMonth } from './validate';
 /** Миллисекунд в сутках. */
 const MS_IN_DAY = 86_400_000;
 
-/** Дополняет число до двух знаков: 7 → «07». Так же, как в src/lib/date.ts. */
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
+/**
+ * Дополняет число нулями слева: 7 → «07», год 26 → «0026».
+ *
+ * Год дополняется до четырёх знаков обязательно: иначе `nextDay` вернул бы «26-01-02»,
+ * такая строка не равна ни одной дате формата YYYY-MM-DD, и перебор диапазона перестал бы
+ * находить вхождения. Шаблон даты проекта (\d{4}) сам по себе годы меньше 1000 пропускает.
+ */
+function pad(value: number, length: number = 2): string {
+  return String(value).padStart(length, '0');
 }
 
 /** Год, месяц и день из строки YYYY-MM-DD. */
@@ -35,14 +41,14 @@ function nextDay(iso: string): string {
   const [year, month, day] = parts(iso);
 
   if (day < daysInMonth(year, month)) {
-    return `${year}-${pad(month)}-${pad(day + 1)}`;
+    return `${pad(year, 4)}-${pad(month)}-${pad(day + 1)}`;
   }
 
   if (month < 12) {
-    return `${year}-${pad(month + 1)}-01`;
+    return `${pad(year, 4)}-${pad(month + 1)}-01`;
   }
 
-  return `${year + 1}-01-01`;
+  return `${pad(year + 1, 4)}-01-01`;
 }
 
 /**

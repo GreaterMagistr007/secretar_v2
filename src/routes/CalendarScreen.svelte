@@ -85,8 +85,13 @@
 
   let modalOpen = $state(false);
 
-  /** Счётчик перечитывания: растёт после сохранения задачи и обновляет метки и список. */
-  let reloadToken = $state(0);
+  /**
+   * Счётчики перечитывания. Разделены намеренно: метки сетки от отметок выполнения не зависят,
+   * поэтому щелчок по флажку перечитывает только список дня, а не все 42 дня сетки с разворотом
+   * правил повторения (требование Т-8 — не создавать излишнюю нагрузку).
+   */
+  let monthReloadToken = $state(0);
+  let dayReloadToken = $state(0);
 
   /** Строит шесть недель по семь дней вместе с хвостами соседних месяцев. */
   function buildWeeks(year: number, month: number): DayCell[][] {
@@ -165,7 +170,7 @@
     const to = weeks[WEEKS_IN_GRID - 1][DAYS_IN_WEEK - 1].iso;
 
     // Перечитывание после сохранения задачи: месяц тот же, а данные уже другие.
-    void reloadToken;
+    void monthReloadToken;
 
     let cancelled = false;
 
@@ -197,7 +202,10 @@
   $effect(() => {
     const date = calendarState.selectedDate;
 
-    void reloadToken;
+    void dayReloadToken;
+
+    // Сообщение об отказе записи относится к прежнему дню и на новом не показывается.
+    toggleError = null;
 
     if (date === null) {
       dayOccurrences = [];
@@ -284,21 +292,24 @@
     const created = await taskRepository.create(data);
 
     calendarState.select(created.date);
-    reloadToken += 1;
+    monthReloadToken += 1;
+    dayReloadToken += 1;
     modalOpen = false;
   }
 
-  /** Отметка выполнения одного вхождения из списка дня (требование Т-5). */
+  /**
+   * Отметка выполнения одного вхождения из списка дня (требование Т-5).
+   *
+   * При отказе записи список НЕ перечитывается: в базе ничего не изменилось, а сам флажок
+   * возвращает себя к данным в обработчике (см. DayTaskList). Перечитывание здесь только
+   * стёрло бы показанное сообщение — эффект списка обнуляет toggleError.
+   */
   async function toggleCompletion(occurrence: Occurrence, done: boolean): Promise<void> {
-    toggleError = null;
-
     try {
       await taskRepository.setCompleted(occurrence.task.id, occurrence.date, done);
+      dayReloadToken += 1;
     } catch {
       toggleError = 'Не удалось сохранить отметку.';
-    } finally {
-      // Перечитывание и при ошибке: на экране снова оказывается то, что фактически в базе.
-      reloadToken += 1;
     }
   }
 
