@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { formatLongDate, isIsoDate, isStaleSelection, toIsoDate, todayIso } from './date';
 
 describe('isStaleSelection', () => {
@@ -77,12 +77,38 @@ describe('formatLongDate', () => {
 });
 
 describe('todayIso', () => {
-  // Сравнение с системными часами, а не с фиксированной датой: тест не должен ломаться завтра.
-  it('отдаёт сегодняшний день по локальному календарю', () => {
-    expect(todayIso()).toBe(toIsoDate(new Date()));
+  // Часы подменяются, а ожидание записано литералом. Сравнивать с toIsoDate(new Date()) нельзя:
+  // это ровно тело самой функции, то есть сравнение реализации с собой — утверждения в таком
+  // тесте нет, а два независимых чтения часов вдобавок расходятся на границе суток.
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it('результат проходит проверку формата', () => {
-    expect(isIsoDate(todayIso())).toBe(true);
+  it('отдаёт сегодняшний день по локальному календарю', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 27, 12, 0, 0));
+
+    expect(todayIso()).toBe('2026-09-27');
+  });
+
+  it('берёт локальные сутки, а не UTC: поздний вечер остаётся сегодняшним днём', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 27, 23, 30, 0));
+
+    expect(todayIso()).toBe('2026-09-27');
+  });
+
+  it('сразу после полуночи отдаёт уже новый день', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 28, 0, 0, 1));
+
+    expect(todayIso()).toBe('2026-09-28');
+  });
+
+  it('дополняет месяц и день нулями', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 0, 7, 9, 0, 0));
+
+    expect(todayIso()).toBe('2026-01-07');
   });
 });
