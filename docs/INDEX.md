@@ -28,8 +28,8 @@ type: project
 - [backlog_post_mvp.md](backlog_post_mvp.md) — отложенное, у каждого пункта триггер возврата.
 
 ## Требования
-- [req_tasks.md](req_tasks.md) — задача: свойства, регулярность, статус, поиск, производительность (Т-1…Т-9).
-- [req_screens.md](req_screens.md) — экраны и оболочка PWA (Т-10…Т-17).
+- [req_tasks.md](req_tasks.md) — задача: свойства, регулярность, статус, поиск, производительность (Т-1…Т-9, Т-24).
+- [req_screens.md](req_screens.md) — экраны и оболочка PWA (Т-10…Т-23, Т-25…Т-28).
 
 ## Архитектура и планы
 - [architecture_storage.md](architecture_storage.md) — хранение: IndexedDB через Dexie, схема, индексы, поиск по описанию, модель повторений.
@@ -47,7 +47,7 @@ type: project
 
 ## Механики реализации
 - [mechanic_pwa_shell.md](mechanic_pwa_shell.md) — оболочка PWA: каркас Vite + Svelte, главный экран, манифест, service worker, иконки, окружение сборки, workflow публикации.
-- [mechanic_tasks.md](mechanic_tasks.md) — задачи: модель, хранилище IndexedDB, создание, список дня, полноэкранный просмотр.
+- [mechanic_tasks.md](mechanic_tasks.md) — задачи: модель, хранилище IndexedDB, повторения и отметки выполнения, создание, список дня, полноэкранный просмотр.
 - [mechanic_themes.md](mechanic_themes.md) — темы и оболочка приложения: 30 тем, применение и хранение выбора, роутинг, нижняя навигация, экраны календаря, настроек и выбора темы.
 Новые механики заводятся файлом `mechanic_<name>.md` и вносятся в этот список.
 
