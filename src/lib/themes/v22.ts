@@ -12,7 +12,7 @@ const theme: Theme = {
     colorSurface: '#ffffff',
     colorSurfaceMuted: '#e6edf4',
     colorText: '#000000',
-    colorTextMuted: '#8e8e93',
+    colorTextMuted: '#8a8a8f',
     colorBorder: '#c6c6c8',
 
     // Три ключевых цвета

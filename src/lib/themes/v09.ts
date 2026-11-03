@@ -12,7 +12,7 @@ const theme: Theme = {
     colorSurface: '#ffffff',
     colorSurfaceMuted: '#ece7fc',
     colorText: '#3b3550',
-    colorTextMuted: '#9a94b4',
+    colorTextMuted: '#8e87ab',
     colorBorder: '#eae6f6',
 
     // Три ключевых цвета
@@ -36,7 +36,7 @@ const theme: Theme = {
     colorToday: '#8f7ee0',
     colorOnToday: '#ffffff',
     colorSelected: '#ece7fc',
-    colorWeekend: '#f4a6c0',
+    colorWeekend: '#ea5587',
     colorTaskA: '#8f7ee0',
     colorTaskB: '#f4a6c0',
     colorTaskC: '#f6c96b',
@@ -55,7 +55,7 @@ const theme: Theme = {
 
     // Нижняя навигация
     navBg: '#ffffff',
-    navText: '#9a94b4',
+    navText: '#8e87ab',
     navTextActive: '#8f7ee0',
     navBorder: '#eae6f6',
   },

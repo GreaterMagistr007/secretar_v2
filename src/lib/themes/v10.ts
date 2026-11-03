@@ -36,7 +36,7 @@ const theme: Theme = {
     colorToday: '#7c3aed',
     colorOnToday: '#ffffff',
     colorSelected: '#f1ebfe',
-    colorWeekend: '#b09bd8',
+    colorWeekend: '#a087d0',
     colorTaskA: '#7c3aed',
     colorTaskB: '#5b21b6',
     colorTaskC: '#b09bd8',

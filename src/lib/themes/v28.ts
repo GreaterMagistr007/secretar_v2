@@ -30,12 +30,12 @@ const theme: Theme = {
     buttonPrimaryText: '#ffffff',
     buttonPrimaryBorder: 'transparent',
     buttonSecondaryBg: '#fff1ec',
-    buttonSecondaryText: '#ef5f7a',
+    buttonSecondaryText: '#ee5673',
     buttonSecondaryBorder: 'transparent',
     buttonRadius: '16px',
 
     // Состояния календаря
-    colorToday: '#ff5f8d',
+    colorToday: '#ff5485',
     colorOnToday: '#ffffff',
     colorSelected: '#fff1ec',
     colorWeekend: '#c74ba6',

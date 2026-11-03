@@ -12,7 +12,7 @@ const theme: Theme = {
     colorSurface: '#ffffff',
     colorSurfaceMuted: '#f7f9fc',
     colorText: '#25313f',
-    colorTextMuted: '#7e8ea1',
+    colorTextMuted: '#7c8c9f',
     colorBorder: '#d6dee8',
 
     // Три ключевых цвета
@@ -36,7 +36,7 @@ const theme: Theme = {
     colorToday: '#4a7fb5',
     colorOnToday: '#ffffff',
     colorSelected: '#dde8f4',
-    colorWeekend: '#8895a8',
+    colorWeekend: '#7d8ba0',
     colorTaskA: '#4a7fb5',
     colorTaskB: '#31465e',
     colorTaskC: '#8fb4d6',

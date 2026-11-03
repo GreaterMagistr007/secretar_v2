@@ -35,7 +35,7 @@ const theme: Theme = {
     // Состояния календаря
     colorToday: '#37f5c5',
     colorOnToday: '#06241d',
-    colorSelected: '#b46cff',
+    colorSelected: '#ad5eff',
     colorWeekend: '#ff4f9a',
     colorTaskA: '#37f5c5',
     colorTaskB: '#b46cff',

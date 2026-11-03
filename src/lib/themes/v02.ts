@@ -12,7 +12,7 @@ const theme: Theme = {
     colorSurface: '#fffdf8',
     colorSurfaceMuted: '#f2e1cd',
     colorText: '#3a3027',
-    colorTextMuted: '#a3927c',
+    colorTextMuted: '#9a876f',
     colorBorder: '#e6dbc7',
 
     // Три ключевых цвета
@@ -55,7 +55,7 @@ const theme: Theme = {
 
     // Нижняя навигация
     navBg: '#fffdf8',
-    navText: '#a3927c',
+    navText: '#9a876f',
     navTextActive: '#b4713a',
     navBorder: '#e6dbc7',
   },

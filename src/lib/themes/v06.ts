@@ -12,11 +12,11 @@ const theme: Theme = {
     colorSurface: '#ffffff',
     colorSurfaceMuted: '#ffe4de',
     colorText: '#3d2320',
-    colorTextMuted: '#b9887f',
+    colorTextMuted: '#b58278',
     colorBorder: '#ffe0d8',
 
     // Три ключевых цвета
-    colorPrimary: '#ff6f5e',
+    colorPrimary: '#ff5c48',
     colorOnPrimary: '#ffffff',
     colorSecondary: '#ffe4de',
     colorOnSecondary: '#3d2320',
@@ -24,19 +24,19 @@ const theme: Theme = {
     colorOnTertiary: '#3d2320',
 
     // Кнопки
-    buttonPrimaryBg: '#ff6f5e',
+    buttonPrimaryBg: '#ff5c48',
     buttonPrimaryText: '#ffffff',
     buttonPrimaryBorder: 'transparent',
     buttonSecondaryBg: '#ffffff',
-    buttonSecondaryText: '#ff6f5e',
+    buttonSecondaryText: '#ff5c48',
     buttonSecondaryBorder: 'transparent',
     buttonRadius: '999px',
 
     // Состояния календаря
-    colorToday: '#ff6f5e',
+    colorToday: '#ff5c48',
     colorOnToday: '#ffffff',
     colorSelected: '#ffe4de',
-    colorWeekend: '#ff6f5e',
+    colorWeekend: '#ff503c',
     colorTaskA: '#ff6f5e',
     colorTaskB: '#ff8a72',
     colorTaskC: '#d6503f',
@@ -56,7 +56,7 @@ const theme: Theme = {
     // Нижняя навигация
     navBg: '#ffffff',
     navText: '#b9887f',
-    navTextActive: '#ff6f5e',
+    navTextActive: '#ff5c48',
     navBorder: '#ffe0d8',
   },
 };

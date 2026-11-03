@@ -35,7 +35,7 @@ const theme: Theme = {
     // Состояния календаря
     colorToday: '#8ef0d8',
     colorOnToday: '#173a35',
-    colorSelected: '#ffb3e6',
+    colorSelected: '#ff1fb5',
     colorWeekend: '#ffb3e6',
     colorTaskA: '#8ef0d8',
     colorTaskB: '#ffb3e6',
@@ -55,7 +55,7 @@ const theme: Theme = {
 
     // Нижняя навигация
     navBg: 'rgba(255, 255, 255, 0.11)',
-    navText: 'rgba(242, 240, 255, 0.62)',
+    navText: 'rgba(242, 240, 255, 0.72)',
     navTextActive: '#8ef0d8',
     navBorder: 'rgba(255, 255, 255, 0.24)',
   },
