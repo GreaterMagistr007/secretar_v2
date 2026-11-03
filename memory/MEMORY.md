@@ -41,6 +41,11 @@ type: project
 - [notes_gallery_b.md](notes_gallery_b.md) — разбор кода v11–v20 (агент надолго замолчал из-за затёртого соседом скрипта, но работу довёл до конца); [notes_gallery_b2.md](notes_gallery_b2.md) — замена, запущенная на время молчания, по шести кандидатам v11, v13, v16, v17, v19, v20. Два независимых разбора шести общих макетов дали совпадающие числа — это сверка, а не дубль.
 Итог отбора — в документации: [../docs/reference_gallery_calendar.md](../docs/reference_gallery_calendar.md).
 
+## Работа без решений владельца (2026-11-03)
+- [progress_contrast.md](progress_contrast.md) — контраст тем по решению Р-26: карта «токен → фон», было → стало, пересчёт, доработка после скептика.
+- [progress_search_parity.md](progress_search_parity.md) — паритет двух реализаций `search`: порядок курсора Dexie, тесты, мутации.
+- [findings_skeptic_contrast_search.md](findings_skeptic_contrast_search.md) — скептик перед пушем: пять пропущенных пар контраста, слабый тест наименьшего токена.
+
 ## Отчёты прошлых этапов
 Оболочка PWA и первый этап: [progress_stage_01.md](progress_stage_01.md), [progress_app_shell.md](progress_app_shell.md). Галерея макетов календаря: [progress_gallery_a.md](progress_gallery_a.md), [progress_gallery_b.md](progress_gallery_b.md), [progress_gallery_c.md](progress_gallery_c.md). Темы и шрифты: [progress_themes_a.md](progress_themes_a.md), [progress_themes_b.md](progress_themes_b.md), [progress_themes_c.md](progress_themes_c.md), [progress_webfonts.md](progress_webfonts.md), [findings_ui_test.md](findings_ui_test.md). Сущность «Задача»: [progress_tasks_data.md](progress_tasks_data.md), [progress_tasks_ui.md](progress_tasks_ui.md).
 

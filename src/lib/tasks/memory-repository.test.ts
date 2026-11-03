@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createId } from './id';
 import { MemoryTaskRepository } from './memory-repository';
+
+// Настоящий генератор по умолчанию; подменяется разово там, где тесту нужен
+// порядок идентификаторов, отличный от порядка создания.
+vi.mock('./id', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./id')>();
+
+  return { ...actual, createId: vi.fn(actual.createId) };
+});
 
 describe('MemoryTaskRepository', () => {
   afterEach(() => {
@@ -774,6 +783,204 @@ describe('MemoryTaskRepository', () => {
       await repository.remove(created.id);
 
       expect(await repository.search('молоко')).toEqual([]);
+    });
+
+    describe('выдача длиннее лимита — отбор в порядке индекса, как курсор Dexie', () => {
+      it('при limit + 1 совпадении отбрасывает последнее по токену, а не по дате', async () => {
+        const repository = new MemoryTaskRepository();
+        await repository.create({
+          text: 'Молоко купить',
+          date: '2026-09-01',
+          priority: 'high',
+          recurrence: 'none',
+        });
+        const prayer = await repository.create({
+          text: 'Молитва',
+          date: '2026-09-20',
+          priority: 'low',
+          recurrence: 'none',
+        });
+        const lightning = await repository.create({
+          text: 'Молния на куртке',
+          date: '2026-09-10',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+
+        // Порядок индекса: «молитва» < «молния» < «молоко». По дате первым было бы молоко.
+        const found = await repository.search('мол', 2);
+
+        expect(found.map((task) => task.id)).toEqual([lightning.id, prayer.id]);
+      });
+
+      it('при ровно limit совпадений отдаёт все в порядке дат', async () => {
+        const repository = new MemoryTaskRepository();
+        const milk = await repository.create({
+          text: 'Молоко купить',
+          date: '2026-09-01',
+          priority: 'high',
+          recurrence: 'none',
+        });
+        const prayer = await repository.create({
+          text: 'Молитва',
+          date: '2026-09-20',
+          priority: 'low',
+          recurrence: 'none',
+        });
+        const lightning = await repository.create({
+          text: 'Молния на куртке',
+          date: '2026-09-10',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+
+        const found = await repository.search('мол', 3);
+
+        expect(found.map((task) => task.id)).toEqual([milk.id, lightning.id, prayer.id]);
+      });
+
+      it('при одинаковом токене отбирает по id, а не по порядку создания или дате', async () => {
+        vi.mocked(createId)
+          .mockReturnValueOnce('id-c')
+          .mockReturnValueOnce('id-a')
+          .mockReturnValueOnce('id-b');
+        const repository = new MemoryTaskRepository();
+
+        for (const date of ['2026-09-01', '2026-09-03', '2026-09-02']) {
+          await repository.create({
+            text: 'Купить молоко',
+            date,
+            priority: 'medium',
+            recurrence: 'none',
+          });
+        }
+
+        // По id первые два — id-a (03.09) и id-b (02.09); id-c (01.09) за лимитом.
+        const found = await repository.search('молоко', 2);
+
+        expect(found.map((task) => task.id)).toEqual(['id-b', 'id-a']);
+      });
+
+      it('задачу с двумя токенами на префикс ставит по наименьшему и отдаёт один раз', async () => {
+        const repository = new MemoryTaskRepository();
+        // Токены «молоко», «и», «молитва»; с префиксом «мол» наименьший — «молитва»,
+        // хотя в тексте первым идёт «молоко».
+        const both = await repository.create({
+          text: 'Молоко и молитва',
+          date: '2026-09-30',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        // Токены «молния», «и», «молотый», «перец»; наименьший с префиксом — «молния».
+        const lightning = await repository.create({
+          text: 'Молния и молотый перец',
+          date: '2026-09-01',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        const ground = await repository.create({
+          text: 'Молотый кофе',
+          date: '2026-09-02',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        const milk = await repository.create({
+          text: 'Молоко',
+          date: '2026-09-03',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+
+        // Порядок индекса: молитва (both) < молния (lightning) < молоко (milk) < молотый (ground).
+        // Если ставить задачу по первому токену текста, первой была бы lightning (both — на «молоко»);
+        // если по наибольшему, во второй позиции оказалась бы milk (lightning — на «молотый»).
+        const first = await repository.search('мол', 1);
+        const limited = await repository.search('мол', 2);
+        const all = await repository.search('мол', 10);
+
+        expect(first.map((task) => task.id)).toEqual([both.id]);
+        expect(limited.map((task) => task.id)).toEqual([lightning.id, both.id]);
+        expect(all.map((task) => task.id)).toEqual([lightning.id, ground.id, milk.id, both.id]);
+      });
+
+      it('при токенах запроса равной длины обходит индекс по первому', async () => {
+        const repository = new MemoryTaskRepository();
+        // По «чай» у обеих токен «чай», решает id — первой создана cheese.
+        // По «сыр» первой была бы snack: «сыр» < «сырок».
+        const cheese = await repository.create({
+          text: 'Чай сырок',
+          date: '2026-09-02',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        const snack = await repository.create({
+          text: 'Купить чай сыр',
+          date: '2026-09-01',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+
+        const found = await repository.search('чай сыр', 1);
+
+        expect(found.map((task) => task.id)).toEqual([cheese.id]);
+        expect(snack.id > cheese.id).toBe(true);
+      });
+
+      it('запрос из двух слов обходит индекс по самому длинному токену', async () => {
+        const repository = new MemoryTaskRepository();
+        const garlic = await repository.create({
+          text: 'Зеленый чеснок',
+          date: '2026-09-01',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        const tea = await repository.create({
+          text: 'Зеленый чай',
+          date: '2026-09-05',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        await repository.create({
+          text: 'Зеленый чайник',
+          date: '2026-09-03',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+
+        // Обход по «зеленый»: токен у всех один, порядок — по id (порядку создания).
+        // По «ч» были бы чай и чайник, по дате — чеснок и чайник.
+        const found = await repository.search('зеленый ч', 2);
+
+        expect(found.map((task) => task.id)).toEqual([garlic.id, tea.id]);
+      });
+
+      it('запрос из двух слов обходит индекс по длинному токену и когда он второй', async () => {
+        const repository = new MemoryTaskRepository();
+        const bread = await repository.create({
+          text: 'Хлеб и молоко',
+          date: '2026-09-03',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        await repository.create({
+          text: 'Сыр и молокозавод',
+          date: '2026-09-01',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+        const tea = await repository.create({
+          text: 'Чай и молоко',
+          date: '2026-09-02',
+          priority: 'medium',
+          recurrence: 'none',
+        });
+
+        // Обход по «молоко»: молоко (хлеб, чай — по id) < молокозавод (сыр).
+        // По «и» были бы хлеб и сыр, по дате — сыр и чай.
+        const found = await repository.search('и молоко', 2);
+
+        expect(found.map((task) => task.id)).toEqual([tea.id, bread.id]);
+      });
     });
   });
 });

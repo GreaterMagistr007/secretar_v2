@@ -138,10 +138,34 @@ export class MemoryTaskRepository implements TaskRepository {
       return [];
     }
 
-    const found = [...this.tasks.values()].filter((task) =>
-      matchesSearchQuery(task.text, task.searchTokens, parsed),
+    // Отбор первых `limit` повторяет курсор Dexie: тот останавливается после `limit`
+    // совпадений ради независимости отклика от объёма базы (требование Т-8), поэтому
+    // состав выдачи задаёт порядок индекса, а не итоговая сортировка. Обход идёт по
+    // самому длинному токену запроса (при равной длине — по первому), курсор упорядочен
+    // по токену индекса, затем по id, а distinct() оставляет задачу в первой позиции —
+    // на наименьшем её токене с этим префиксом.
+    const indexKey = parsed.tokens.reduce((longest, token) =>
+      token.length > longest.length ? token : longest,
     );
+    const candidates = [...this.tasks.values()]
+      .filter((task) => matchesSearchQuery(task.text, task.searchTokens, parsed))
+      .map((task) => ({
+        task,
+        // Совпавшая задача всегда имеет токен с префиксом indexKey: это проверил matchesSearchQuery.
+        key: task.searchTokens
+          .filter((token) => token.startsWith(indexKey))
+          .reduce((least, token) => (token < least ? token : least)),
+      }))
+      .sort((a, b) => {
+        if (a.key !== b.key) {
+          return a.key < b.key ? -1 : 1;
+        }
 
-    return sortTasksByDate(found).slice(0, limit).map(MemoryTaskRepository.copy);
+        return a.task.id < b.task.id ? -1 : 1;
+      });
+
+    return sortTasksByDate(candidates.slice(0, limit).map((candidate) => candidate.task)).map(
+      MemoryTaskRepository.copy,
+    );
   }
 }
