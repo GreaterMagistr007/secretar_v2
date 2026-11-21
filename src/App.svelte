@@ -1,10 +1,12 @@
 <script lang="ts">
   /**
    * Оболочка приложения: применение сохранённой темы, вывод экрана по маршруту,
-   * нижняя навигация, видимая на всех экранах (требование Т-18), и синхронизация
-   * уведомления о задачах дня в Android-приложении (требование Т-31).
+   * нижняя навигация, видимая на всех экранах (требование Т-18), всплывающее сообщение
+   * (решение Р-35) и синхронизация уведомления о задачах дня в Android-приложении
+   * (требование Т-31).
    */
   import BottomNav from './lib/components/BottomNav.svelte';
+  import Toast from './lib/components/Toast.svelte';
   import CalendarScreen from './routes/CalendarScreen.svelte';
   import NotificationsScreen from './routes/NotificationsScreen.svelte';
   import SettingsScreen from './routes/SettingsScreen.svelte';
@@ -57,6 +59,8 @@
   </main>
 
   <BottomNav current={router.current} />
+
+  <Toast />
 </div>
 
 <style>
