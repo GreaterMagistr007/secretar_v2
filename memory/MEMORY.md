@@ -45,8 +45,9 @@ type: project
 - [progress_android.md](progress_android.md) — ход реализации: Capacitor, мост, нативная часть, сборка и подпись APK.
 - [findings_android_emulator.md](findings_android_emulator.md) — проверка APK на эмуляторе Android 15: 11 сценариев с выводом adb, замечание об окне будильника до часа.
 - [findings_skeptic_android.md](findings_skeptic_android.md) — скептик перед пушем: 3 важные находки, 9 мелочей.
+- [findings_exact_alarm.md](findings_exact_alarm.md) — проверка точного будильника полуночи (Р-33) на эмуляторе, включая принудительный Doze.
 - [progress_android_fixes.md](progress_android_fixes.md) — исправления по скептику, доказательство мутации теста восточной зоны.
-Образ эмулятора `secretar-emu-check` (около 6 ГБ) оставлен в docker для повторных проверок.
+Образ эмулятора `secretar-emu-check` (около 6 ГБ) оставлен в docker для локальных тестов APK по указанию владельца.
 
 ## Работа без решений владельца (2026-11-03)
 - [progress_contrast.md](progress_contrast.md) — контраст тем по решению Р-26: карта «токен → фон», было → стало, пересчёт, доработка после скептика.

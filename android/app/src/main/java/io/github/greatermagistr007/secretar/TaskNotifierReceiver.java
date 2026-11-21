@@ -75,11 +75,17 @@ public class TaskNotifierReceiver extends BroadcastReceiver {
         PendingIntent midnight = broadcast(context, ACTION_MIDNIGHT);
 
         if (enabled) {
-            // Неточный будильник: точные требуют отдельного разрешения. Система даёт ему окно
-            // до часа после полуночи (dumpsys alarm на Android 15: window=+1h0m0s), в корзинах
-            // App Standby rare/restricted — дольше; смена числа в шторке это допускает.
-            // allowWhileIdle — срабатывает и в Doze.
-            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, TaskCounts.nextMidnight(now, zone), midnight);
+            long at = TaskCounts.nextMidnight(now, zone);
+
+            // Точный будильник ровно в 00:00, срабатывает и в Doze (решение Р-33). Разрешение
+            // даёт манифест: USE_EXACT_ALARM на Android 13+, SCHEDULE_EXACT_ALARM на 12. Если
+            // точные всё же недоступны (пользователь отозвал разрешение на Android 12) — неточный:
+            // система даёт ему окно до часа после полуночи (dumpsys alarm: window=+1h0m0s).
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) {
+                alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, midnight);
+            } else {
+                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, midnight);
+            }
         } else {
             alarms.cancel(midnight);
         }

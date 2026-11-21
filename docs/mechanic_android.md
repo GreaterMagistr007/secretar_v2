@@ -36,7 +36,7 @@ type: project
 - `capacitor.config.json` в корне: `appId` `io.github.greatermagistr007.secretar`, `appName` «Секретарь», `webDir` `dist`.
 - Пакеты (версии точные): `@capacitor/core` и `@capacitor/android` 8.6.2 в `dependencies`, `@capacitor/cli` 8.6.2 в `devDependencies` — обоснование в [tech_stack.md](tech_stack.md).
 - Каталог `android/` создан `npx cap add android` (шаблон Capacitor 8.6.2: Android Gradle Plugin 8.13.0, Gradle 8.14.3, `compileSdk`/`targetSdk` 36, `minSdk` 24, Java 21) и коммитится. Вне git — то, что пересоздаёт `npx cap sync android`: `android/app/src/main/assets/public` (копия `dist/`), `capacitor.config.json` и `capacitor.plugins.json` в ассетах, `android/capacitor-cordova-android-plugins/`, а также каталоги `build/` (`android/.gitignore` шаблона).
-- Правки шаблона: `MainActivity` регистрирует локальный плагин `TaskNotifierPlugin`; в манифесте — приёмник и два разрешения уведомления; удалены шаблонные `ExampleUnitTest`, `ExampleInstrumentedTest` и неиспользуемые drawable-заготовки иконки.
+- Правки шаблона: `MainActivity` регистрирует локальный плагин `TaskNotifierPlugin`; в манифесте — приёмник, разрешения уведомления и точного будильника (см. mechanic_notifications.md); удалены шаблонные `ExampleUnitTest`, `ExampleInstrumentedTest` и неиспользуемые drawable-заготовки иконки.
 
 ### Иконка и заставка
 Сгенерированы из `public/icons/icon.svg` (ImageMagick с поддержкой SVG в контейнере `alpine`):
@@ -91,7 +91,7 @@ docker run --rm --env-file .env.android -v "$PWD":/app -w /app --user "$(id -u):
 
 ### Версия
 - `versionName` берётся из поля `version` в `package.json` (`JsonSlurper` в `android/app/build.gradle`) — второго места с номером версии нет.
-- `versionCode` — целое в `android/app/build.gradle`, сейчас `2` (выдачи владельцу: `1` — 2026-11-21 первая, `2` — 2026-11-21 с датой и приоритетом в одну строку). **Перед каждой новой выдачей APK его нужно увеличить на единицу**: Android не ставит APK поверх установленного с большим `versionCode`, а одинаковый номер не позволяет отличить сборки друг от друга. Порядок выдачи: поднять `versionCode` (и при желании `version` в `package.json`) → собрать командой выше → проверить → закоммитить поднятый номер вместе с изменениями.
+- `versionCode` — целое в `android/app/build.gradle`, сейчас `3` (выдачи владельцу: `1` — 2026-11-21 первая, `2` — 2026-11-21 с датой и приоритетом в одну строку, `3` — 2026-11-21 с точным будильником полуночи). **Перед каждой новой выдачей APK его нужно увеличить на единицу**: Android не ставит APK поверх установленного с большим `versionCode`, а одинаковый номер не позволяет отличить сборки друг от друга. Порядок выдачи: поднять `versionCode` (и при желании `version` в `package.json`) → собрать командой выше → проверить → закоммитить поднятый номер вместе с изменениями.
 
 ## Jobs
 Нет.
