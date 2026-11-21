@@ -64,3 +64,7 @@ type: project
 - [findings_voice_stt.md](findings_voice_stt.md) — исследование распознавания русской речи: системный распознаватель, Web Speech в WebView, облачные и локальные модели, сводная таблица.
 - [findings_voice_llm.md](findings_voice_llm.md) — исследование ИИ-разбора: локальные модели на телефоне, облачные провайдеры, CORS, доступность из России, хранение ключа, `chrono-node`.
 - [findings_skeptic_voice.md](findings_skeptic_voice.md) — ревью скептиком черновика плана этапа 5, находки Н-1…Н-25.
+- [findings_voice_audio_llm.md](findings_voice_audio_llm.md) — локальные модели со звуком на входе для Android (Gemma 4 E2B на LiteRT-LM — кандидат).
+- [findings_skeptic_voice_audio.md](findings_skeptic_voice_audio.md) — ревью выбора локальной модели, находки С-1…С-15 (нет ToolChoice.Required в 0.19.1, Java вместо Kotlin, опыт на хосте первым).
+- [progress_voice_toast.md](progress_voice_toast.md), [findings_skeptic_toast.md](findings_skeptic_toast.md) — всплывающее сообщение: журнал реализации, ревью Т-1…Т-10.
+- [progress_voice_model_download.md](progress_voice_model_download.md), [progress_voice_model_download_fix.md](progress_voice_model_download_fix.md), [findings_skeptic_model_download.md](findings_skeptic_model_download.md) — докачка модели (Р-36): журналы реализации и исправлений, ревью Д-1…Д-12.

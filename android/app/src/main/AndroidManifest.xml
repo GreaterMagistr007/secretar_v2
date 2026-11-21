@@ -5,9 +5,13 @@
          (решение Р-36), адрес вводит пользователь. С targetSdk 28+ HTTP без шифрования запрещён,
          и DownloadManager соблюдает политику запросившего приложения. network_security_config
          не сужает разрешение: domain-config принимает только имена и отдельные адреса, а не
-         диапазоны локальной сети, — разрешить пришлось бы так же на все адреса (docs/mechanic_android.md). -->
+         диапазоны локальной сети, — разрешить пришлось бы так же на все адреса (docs/mechanic_android.md).
+         fullBackupContent (Android 11 и ниже) и dataExtractionRules (Android 12+): модель для голоса
+         не попадает в резервную копию — иначе копия превысила бы квоту и не делалась бы вовсе. -->
     <application
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"

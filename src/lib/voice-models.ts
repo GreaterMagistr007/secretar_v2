@@ -34,9 +34,10 @@ export function findVoiceModel(id: string | null): VoiceModel {
 /**
  * Приводит введённый адрес сервера раздачи к виду «схема://хост[:порт][/путь]» без `/` в конце.
  * Без схемы подставляется `http://` — сервер в локальной сети, сертификата у него нет.
- * Порт проверяет разбор `URL`: вне 0…65535 адрес неверен. Возвращает null для пустого
+ * Порт проверяет разбор `URL`: вне 1…65535 адрес неверен. Возвращает null для пустого
  * и неверного адреса, для схем кроме http и https, для адреса с параметрами (`?`) или якорем (`#`):
- * к такому адресу имя файла не приписать.
+ * к такому адресу имя файла не приписать, — и с именем пользователя или паролем: раздача их
+ * не принимает, а молча отброшенные они только сбили бы с толку.
  */
 export function normalizeServerAddress(input: string): string | null {
   const trimmed = input.trim();
@@ -45,7 +46,16 @@ export function normalizeServerAddress(input: string): string | null {
     return null;
   }
 
-  const withScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  const hasScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
+
+  // Опечатка в схеме («http:/адрес», «http//адрес», «http:адрес») или пустой порт («адрес:/путь»):
+  // с приписанным http:// такой ввод разобрался бы в существующий хост «http» или порт по
+  // умолчанию, и DownloadManager четверть часа повторял бы попытки к несуществующему серверу.
+  if (!hasScheme && /^https?[:/]|:\//i.test(trimmed)) {
+    return null;
+  }
+
+  const withScheme = hasScheme ? trimmed : `http://${trimmed}`;
   let url: URL;
 
   try {
@@ -54,7 +64,14 @@ export function normalizeServerAddress(input: string): string | null {
     return null;
   }
 
-  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.search !== '' || url.hash !== '') {
+  if (
+    (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+    url.port === '0' ||
+    url.username !== '' ||
+    url.password !== '' ||
+    url.search !== '' ||
+    url.hash !== ''
+  ) {
     return null;
   }
 

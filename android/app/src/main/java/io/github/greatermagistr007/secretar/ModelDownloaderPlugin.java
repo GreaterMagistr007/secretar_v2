@@ -35,6 +35,13 @@ public class ModelDownloaderPlugin extends Plugin {
 
     private static final String KEY_FILE = "file_name";
 
+    /**
+     * Имя файла, чья загрузка завершилась успешно с верным размером. Только такой файл без
+     * записи DownloadManager считается скачанной моделью: DownloadManager сразу выделяет файл
+     * полного размера, и по длине недокачанный файл от готового не отличить.
+     */
+    private static final String KEY_VERIFIED = "verified_file";
+
     private static final long NO_DOWNLOAD = -1;
 
     /** Ставит файл на скачивание: {@code { url, fileName, size, title }}. Прежняя загрузка и файл отбрасываются. */
@@ -87,14 +94,14 @@ public class ModelDownloaderPlugin extends Plugin {
 
         long id = downloadManager().enqueue(request);
 
-        prefs().edit().putLong(KEY_ID, id).putString(KEY_FILE, fileName).apply();
+        prefs().edit().putLong(KEY_ID, id).putString(KEY_FILE, fileName).remove(KEY_VERIFIED).apply();
         call.resolve(toJson(readState(fileName, size)));
     }
 
     /**
      * Состояние файла {@code { fileName, size }}. Завершившаяся загрузка забывается: успешная —
-     * дальше состояние берётся по файлу, ошибочная — отдаётся один раз и убирается вместе с
-     * недокачанным файлом.
+     * файл запоминается проверенным, и дальше состояние берётся по нему; ошибочная — отдаётся
+     * один раз и убирается вместе с недокачанным файлом.
      */
     @PluginMethod
     public void status(PluginCall call) {
@@ -117,10 +124,17 @@ public class ModelDownloaderPlugin extends Plugin {
         call.resolve(toJson(readState(fileName, size)));
     }
 
-    /** Отменяет идущую загрузку; DownloadManager удаляет и недокачанный файл. */
+    /**
+     * Отменяет идущую загрузку; DownloadManager удаляет и недокачанный файл. Уже успешно
+     * завершившуюся загрузку не трогает: remove удалил бы готовый файл. Её разберёт следующий
+     * status — проверит размер и запомнит файл.
+     */
     @PluginMethod
     public void cancel(PluginCall call) {
-        cancelActive();
+        if (!isSuccessful(prefs().getLong(KEY_ID, NO_DOWNLOAD))) {
+            cancelActive();
+        }
+
         call.resolve();
     }
 
@@ -153,6 +167,7 @@ public class ModelDownloaderPlugin extends Plugin {
             return;
         }
 
+        prefs().edit().remove(KEY_VERIFIED).apply();
         call.resolve();
     }
 
@@ -177,10 +192,13 @@ public class ModelDownloaderPlugin extends Plugin {
                             expectedSize);
 
                     if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
-                        // Успешную загрузку с верным размером только забываем: remove удалил бы и готовый файл.
-                        // Ошибку и файл не того размера убирает remove вместе с файлом.
+                        // Успешную загрузку с верным размером только забываем, запомнив файл проверенным:
+                        // remove удалил бы и готовый файл. Ошибку и файл не того размера убирает remove
+                        // вместе с файлом.
                         if (ModelDownloadState.ERROR.equals(state.kind)) {
                             manager.remove(id);
+                        } else {
+                            prefs.edit().putString(KEY_VERIFIED, fileName).apply();
                         }
 
                         forget();
@@ -198,16 +216,32 @@ public class ModelDownloaderPlugin extends Plugin {
             return ModelDownloadState.absent();
         }
 
-        if (target.length() == expectedSize) {
+        if (target.length() == expectedSize && fileName.equals(prefs.getString(KEY_VERIFIED, null))) {
             return ModelDownloadState.downloaded(target.length());
         }
 
-        // Остаток не той длины без загрузки — мусор, место освобождается.
+        // Файл без загрузки и без отметки об успешной — остаток (DownloadManager выделяет файл
+        // сразу полного размера, поэтому длина ничего не доказывает) или файл не той длины: мусор,
+        // место освобождается.
         if (!target.delete()) {
             return ModelDownloadState.error("Не удалось удалить неполный файл модели");
         }
 
         return ModelDownloadState.absent();
+    }
+
+    /** Завершилась ли загрузка с этим номером успешно; нет записи или номера — нет. */
+    private boolean isSuccessful(long id) {
+        if (id == NO_DOWNLOAD) {
+            return false;
+        }
+
+        try (Cursor cursor = downloadManager().query(new DownloadManager.Query().setFilterById(id))) {
+            return cursor != null
+                    && cursor.moveToFirst()
+                    && cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                            == DownloadManager.STATUS_SUCCESSFUL;
+        }
     }
 
     private void cancelActive() {

@@ -131,7 +131,10 @@ describe('parseModelState', () => {
       state: 'error',
       reason: 'Непонятный ответ приложения: {"state":"error"}',
     });
-    expect(parseModelState({ state: 'error', reason: '' }).state).toBe('error');
+    expect(parseModelState({ state: 'error', reason: '' })).toEqual({
+      state: 'error',
+      reason: 'Непонятный ответ приложения: {"state":"error","reason":""}',
+    });
   });
 });
 

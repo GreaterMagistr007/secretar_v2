@@ -88,10 +88,40 @@ describe('normalizeServerAddress', () => {
     expect(normalizeServerAddress('192.168.1.10:65535')).toBe('http://192.168.1.10:65535');
   });
 
-  it('порт вне диапазона и не число — неверный адрес', () => {
+  it('порт вне диапазона, ноль и не число — неверный адрес', () => {
     expect(normalizeServerAddress('192.168.1.10:65536')).toBeNull();
     expect(normalizeServerAddress('192.168.1.10:-1')).toBeNull();
     expect(normalizeServerAddress('192.168.1.10:port')).toBeNull();
+    expect(normalizeServerAddress('192.168.1.10:0')).toBeNull();
+    expect(normalizeServerAddress('192.168.1.10:00')).toBeNull();
+    expect(normalizeServerAddress('http://192.168.1.10:0/')).toBeNull();
+  });
+
+  it('опечатка в схеме и пустой порт — неверный адрес, а не хост «http»', () => {
+    expect(normalizeServerAddress('http:/192.168.0.1')).toBeNull();
+    expect(normalizeServerAddress('HTTPS:/192.168.0.1:8088')).toBeNull();
+    expect(normalizeServerAddress('http//192.168.0.1')).toBeNull();
+    expect(normalizeServerAddress('https//192.168.0.1:8088')).toBeNull();
+    expect(normalizeServerAddress('http:192.168.0.1')).toBeNull();
+    expect(normalizeServerAddress('http:8088')).toBeNull();
+    expect(normalizeServerAddress('192.168.0.1:/models')).toBeNull();
+  });
+
+  it('имя хоста, лишь начинающееся с http, — верный адрес', () => {
+    expect(normalizeServerAddress('httpserver:8088')).toBe('http://httpserver:8088');
+  });
+
+  it('адрес с именем пользователя или паролем — null: раздача их не принимает', () => {
+    expect(normalizeServerAddress('user:pw@192.168.0.1:8088')).toBeNull();
+    expect(normalizeServerAddress('http://user@192.168.0.1:8088')).toBeNull();
+    expect(normalizeServerAddress('http://:pw@192.168.0.1:8088')).toBeNull();
+  });
+
+  it('IPv6 — только в квадратных скобках', () => {
+    expect(normalizeServerAddress('[fe80::1]:8088')).toBe('http://[fe80::1]:8088');
+    expect(normalizeServerAddress('http://[::1]/models/')).toBe('http://[::1]/models');
+    expect(normalizeServerAddress('fe80::1')).toBeNull();
+    expect(normalizeServerAddress('[fe80::1')).toBeNull();
   });
 
   it('пустой ввод и одни пробелы — null', () => {

@@ -41,6 +41,8 @@
   let modelState = $state<ModelState | null>(null);
   /** Идёт команда (скачать, отменить, удалить): кнопки недоступны, чтобы не нажать дважды. */
   let busy = $state(false);
+  /** Текст отказа последнего чтения состояния; null — прочитано. */
+  let readError = $state<string | null>(null);
 
   const downloading = $derived(modelState?.state === 'downloading');
 
@@ -68,11 +70,23 @@
     modelState = next;
   }
 
+  /**
+   * Перечитывает состояние. Отказ, пока состояния нет, экран показывает текстом с кнопкой
+   * «Повторить»; при известном состоянии — всплывающим сообщением, но только первый: опрос
+   * раз в секунду иначе повторял бы его каждую секунду.
+   */
   async function refresh(): Promise<void> {
     try {
       apply(await readModelState(model));
+      readError = null;
     } catch (error: unknown) {
-      showToast('error', `Не удалось узнать состояние модели: ${errorText(error)}`);
+      const text = `Не удалось узнать состояние модели: ${errorText(error)}`;
+
+      if (readError === null && modelState !== null) {
+        showToast('error', text);
+      }
+
+      readError = text;
     }
   }
 
@@ -148,7 +162,11 @@
     return run(async () => {
       await cancelModelDownload();
       await refresh();
-      showToast('success', 'Загрузка отменена');
+
+      // Загрузка успела завершиться до отмены: модель осталась, об этом уже сообщил apply.
+      if (modelState?.state !== 'downloaded') {
+        showToast('success', 'Загрузка отменена');
+      }
     });
   }
 
@@ -217,6 +235,9 @@
     <p class="muted">
       Модель скачивается и работает только в Android-приложении. В браузере докачки нет.
     </p>
+  {:else if modelState === null && readError !== null}
+    <p class="status">{readError}</p>
+    <button type="button" class="button" disabled={busy} onclick={() => run(refresh)}>Повторить</button>
   {:else if modelState?.state === 'absent'}
     <p class="status">Не скачана</p>
     <button type="button" class="button" disabled={busy} onclick={download}>Скачать</button>
