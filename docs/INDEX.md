@@ -38,6 +38,7 @@ type: project
 - [plan_stage_02_calendar_gallery.md](plan_stage_02_calendar_gallery.md) — план этапа 2: галерея вариантов вёрстки календаря для выбора дизайна.
 - [plan_stage_03_recurrence_completions.md](plan_stage_03_recurrence_completions.md) — план этапа 3: повторения (Т-4) и отметки выполнения (Т-5), с таблицей правил повторения и ответами на замечания ревью.
 - [plan_stage_04_android.md](plan_stage_04_android.md) — план этапа 4: APK через Capacitor и постоянное уведомление о незавершённых задачах дня (Т-29…Т-31).
+- [plan_stage_05_voice.md](plan_stage_05_voice.md) — план этапа 5: голосовое управление (В-18) — этапы конвейера, варианты исполнения с рекомендациями, ревью скептика.
 
 ## Правила разработки
 - [code_style.md](code_style.md) — стиль и правила написания кода.

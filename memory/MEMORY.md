@@ -59,3 +59,8 @@ type: project
 
 ## Отчёты агентов
 Кладутся сюда же, имя не начинается с `report`: `progress_*.md`, `findings_*.md`, `notes_*.md`, `audit_*.md`. Запись — дописыванием через Bash. Правила — [../docs/rules_work.md](../docs/rules_work.md).
+
+## Отчёты по голосовому управлению (2026-11-21, вопрос В-18)
+- [findings_voice_stt.md](findings_voice_stt.md) — исследование распознавания русской речи: системный распознаватель, Web Speech в WebView, облачные и локальные модели, сводная таблица.
+- [findings_voice_llm.md](findings_voice_llm.md) — исследование ИИ-разбора: локальные модели на телефоне, облачные провайдеры, CORS, доступность из России, хранение ключа, `chrono-node`.
+- [findings_skeptic_voice.md](findings_skeptic_voice.md) — ревью скептиком черновика плана этапа 5, находки Н-1…Н-25.
