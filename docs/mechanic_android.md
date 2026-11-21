@@ -74,6 +74,8 @@ env UID=$(id -u) GID=$(id -g) docker compose run --rm android
 
 `test` прогоняет JUnit-тесты модуля `app` (debug и release) — без зелёных тестов APK не собирается.
 
+Архитектуры (с 2026-11-21): нативные библиотеки LiteRT-LM весят 21,6 МБ под `arm64-v8a` и 25,6 МБ под `x86_64`; APK с обеими — 54,6 МБ, бот Telegram такой файл не принимает (HTTP 413, предел 50 МБ). Поэтому по умолчанию собирается только `arm64-v8a` (телефоны) — 27,8 МБ. Для эмулятора `secretar-emu-check` (x86_64): `env UID=$(id -u) GID=$(id -g) SECRETAR_ABIS=arm64-v8a,x86_64 docker compose run --rm android`. Переменная `SECRETAR_ABIS` передаётся в контейнер сервисом `android`, читается `ndk.abiFilters` в `android/app/build.gradle`.
+
 ### Подпись
 - Ключ — `release.keystore` в корне проекта: PKCS12, RSA 4096, срок 36 500 дней, alias `secretar`. Сгенерирован один раз `keytool` в контейнере `eclipse-temurin:21-jdk-noble`, права файла 600.
 - Пароли — `.env.android` в корне проекта, права 600; передаются в контейнер через `env_file` сервиса `android`. Переменные: `SECRETAR_KEYSTORE_PASSWORD`, `SECRETAR_KEY_ALIAS`, `SECRETAR_KEY_PASSWORD` (у PKCS12 пароль ключа совпадает с паролем хранилища).

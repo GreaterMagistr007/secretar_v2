@@ -15,6 +15,12 @@ android {
         versionCode 6
         versionName packageJson.version
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Нативные библиотеки LiteRT-LM — около 22–26 МБ на каждую архитектуру. По умолчанию только
+        // arm64-v8a (телефоны): с x86_64 APK выходит за предел 50 МБ отправки ботом Telegram.
+        // Для эмулятора — SECRETAR_ABIS=arm64-v8a,x86_64 (docs/mechanic_android.md, раздел «Сборка»).
+        ndk {
+            abiFilters(*((System.getenv('SECRETAR_ABIS') ?: 'arm64-v8a').split(',')))
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
