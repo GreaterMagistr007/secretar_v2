@@ -7,6 +7,7 @@
    */
   import type { NewTask, Occurrence, Priority } from '../lib/tasks/types';
   import { taskRepository } from '../lib/task-repository';
+  import { refreshTaskNotification } from '../lib/task-notifier';
   import { calendarState } from '../lib/calendar-state.svelte';
   import { PRIORITY_COLOR, PRIORITY_ORDER } from '../lib/priority';
   import { formatLongDate, toIsoDate, todayIso } from '../lib/date';
@@ -379,6 +380,9 @@
   async function createTask(data: NewTask): Promise<void> {
     const created = await taskRepository.create(data);
 
+    // Уведомление о задачах дня (требование Т-31) пересчитывается после каждой записи.
+    // Ждать его незачем: ошибки оно не бросает, а модалка должна закрыться сразу.
+    void refreshTaskNotification();
     calendarState.select(created.date);
     monthReloadToken += 1;
     dayReloadToken += 1;
@@ -399,6 +403,7 @@
 
     try {
       await taskRepository.setCompleted(occurrence.task.id, day, done);
+      void refreshTaskNotification();
 
       if (calendarState.selectedDate === day) {
         dayReloadToken += 1;

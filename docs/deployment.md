@@ -54,5 +54,15 @@ convert -background none icon.svg -resize 410x410 -gravity center -background '#
 - Maskable-вариант — буква вписана в 410 px из 512 (центральные 80 %), фон залит во весь квадрат, поэтому при любой маске системы значимая часть не обрезается.
 - Меняется дизайн — правится только `icon.svg`, дальше четыре команды выше; после этого нужна пересборка, иначе в `dist/` останутся старые файлы.
 
+## Android-приложение (APK)
+Подробно — [mechanic_android.md](mechanic_android.md). Кратко:
+- Сборка одной командой из корня: `env UID=$(id -u) GID=$(id -g) docker compose run --rm android`. Сервис `android-web` (образ `secretar-node`) собирает веб-часть в режиме `capacitor` (`npm run build:android`: `base: './'`, без service worker) и копирует её в `android/` (`npx cap sync android`); сервис `android` (образ из `Dockerfile.android`: JDK 21, Android SDK 36) прогоняет JUnit-тесты и собирает подписанный APK в `./secretar.apk`. Кэш Gradle — именованный том `gradle-cache`.
+- Сборка для GitHub Pages от этого не меняется: `npm run build` по-прежнему с `base: '/secretar_v2/'` и service worker.
+- Подпись: ключ `release.keystore` и пароли `.env.android` в корне проекта, оба вне git. Переменные `.env.android` (значения в документации не пишутся): `SECRETAR_KEYSTORE_PASSWORD`, `SECRETAR_KEY_ALIAS`, `SECRETAR_KEY_PASSWORD`. Имена без значений — в `.env.example` в корне (коммитится). `env_file` сервиса `android` необязательный: без `.env.android` остальные сервисы compose работают, не соберётся только подписанный APK. Без ключа и паролей обновление поверх установленного APK невозможно — их нужно хранить в резервной копии и переносить на другие устройства разработки вручную.
+- Перед каждой новой выдачей APK поднять `versionCode` в `android/app/build.gradle` на единицу; `versionName` берётся из `version` в `package.json`.
+- Claude APK не публикует и не устанавливает: работа доводится до файла `secretar.apk`, коммита и пуша (правило проекта, раздел 9 CLAUDE.md).
+
 ## Обновление на телефоне
 Service worker настроен на автообновление: после успешной публикации установленное приложение подхватывает новую версию при следующем открытии. Принудительно — перезагрузка страницы; в упорных случаях — закрыть и открыть приложение заново.
+
+Android-приложение публикация на Pages не обновляет: новая версия приходит только новым APK, поставленным поверх прежнего (тот же ключ подписи, больший `versionCode`).

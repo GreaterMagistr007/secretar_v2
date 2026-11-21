@@ -9,8 +9,10 @@
 
   let { current }: { current: Route } = $props();
 
-  /** Вкладка «Настройки» остаётся активной и на вложенном экране выбора темы. */
-  const settingsActive = $derived(current === '/settings' || current === '/settings/theme');
+  /** Вкладка «Настройки» остаётся активной и на вложенных экранах выбора темы и уведомлений. */
+  const settingsActive = $derived(
+    current === '/settings' || current === '/settings/theme' || current === '/settings/notifications',
+  );
   /** Экран задачи открывается из календаря, поэтому активной остаётся вкладка «Календарь». */
   const calendarActive = $derived(current === '/calendar' || current === '/task');
 </script>

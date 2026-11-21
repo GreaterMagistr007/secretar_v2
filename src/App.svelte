@@ -1,14 +1,17 @@
 <script lang="ts">
   /**
-   * Оболочка приложения: применение сохранённой темы, вывод экрана по маршруту
-   * и нижняя навигация, видимая на всех экранах (требование Т-18).
+   * Оболочка приложения: применение сохранённой темы, вывод экрана по маршруту,
+   * нижняя навигация, видимая на всех экранах (требование Т-18), и синхронизация
+   * уведомления о задачах дня в Android-приложении (требование Т-31).
    */
   import BottomNav from './lib/components/BottomNav.svelte';
   import CalendarScreen from './routes/CalendarScreen.svelte';
+  import NotificationsScreen from './routes/NotificationsScreen.svelte';
   import SettingsScreen from './routes/SettingsScreen.svelte';
   import TaskScreen from './routes/TaskScreen.svelte';
   import ThemePickerScreen from './routes/ThemePickerScreen.svelte';
   import { router, startRouter } from './lib/router.svelte';
+  import { startTaskNotifier } from './lib/task-notifier';
   import { findTheme } from './lib/themes/index';
   import { applyTheme, loadThemeId, saveThemeId } from './lib/themes/apply';
   import type { Theme } from './lib/themes/types';
@@ -26,6 +29,10 @@
   // Слежение за хэшем живёт столько же, сколько оболочка.
   $effect(() => startRouter());
 
+  // Передача чисел нативной части при старте и при каждом возвращении в приложение;
+  // в браузере ничего не делает.
+  $effect(() => startTaskNotifier());
+
   /** Клик по карточке темы: перекрашивает приложение целиком и запоминает выбор. */
   function selectTheme(theme: Theme): void {
     applyTheme(theme);
@@ -40,6 +47,8 @@
       <SettingsScreen />
     {:else if router.current === '/settings/theme'}
       <ThemePickerScreen {currentThemeId} onSelect={selectTheme} />
+    {:else if router.current === '/settings/notifications'}
+      <NotificationsScreen />
     {:else if router.current === '/task'}
       <TaskScreen id={router.taskId} />
     {:else}

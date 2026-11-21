@@ -41,6 +41,13 @@ type: project
 - [notes_gallery_b.md](notes_gallery_b.md) — разбор кода v11–v20 (агент надолго замолчал из-за затёртого соседом скрипта, но работу довёл до конца); [notes_gallery_b2.md](notes_gallery_b2.md) — замена, запущенная на время молчания, по шести кандидатам v11, v13, v16, v17, v19, v20. Два независимых разбора шести общих макетов дали совпадающие числа — это сверка, а не дубль.
 Итог отбора — в документации: [../docs/reference_gallery_calendar.md](../docs/reference_gallery_calendar.md).
 
+## Этап 4: Android-приложение и уведомление (2026-11-21)
+- [progress_android.md](progress_android.md) — ход реализации: Capacitor, мост, нативная часть, сборка и подпись APK.
+- [findings_android_emulator.md](findings_android_emulator.md) — проверка APK на эмуляторе Android 15: 11 сценариев с выводом adb, замечание об окне будильника до часа.
+- [findings_skeptic_android.md](findings_skeptic_android.md) — скептик перед пушем: 3 важные находки, 9 мелочей.
+- [progress_android_fixes.md](progress_android_fixes.md) — исправления по скептику, доказательство мутации теста восточной зоны.
+Образ эмулятора `secretar-emu-check` (около 6 ГБ) оставлен в docker для повторных проверок.
+
 ## Работа без решений владельца (2026-11-03)
 - [progress_contrast.md](progress_contrast.md) — контраст тем по решению Р-26: карта «токен → фон», было → стало, пересчёт, доработка после скептика.
 - [progress_search_parity.md](progress_search_parity.md) — паритет двух реализаций `search`: порядок курсора Dexie, тесты, мутации.

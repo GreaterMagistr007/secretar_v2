@@ -1,0 +1,35 @@
+# Окружение сборки APK (требование Т-29): JDK 21 и Android SDK 36.
+# Node здесь нет намеренно: веб-сборка и `cap sync` идут в образе secretar-node (alpine).
+# node_modules общий с dev-контейнером, и `npm install` в этом glibc-образе заменил бы
+# нативные бинарники сборщика на glibc-варианты — dev-контейнер на alpine перестал бы работать.
+FROM eclipse-temurin:21-jdk-noble
+
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH="${PATH}:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/build-tools/36.0.0"
+
+# Версия пакета command-line tools Android SDK (номер сборки в имени архива).
+ARG CMDLINE_TOOLS_BUILD=13114758
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p "${ANDROID_HOME}/cmdline-tools" \
+    && curl -fsSL -o /tmp/cmdline-tools.zip \
+        "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_BUILD}_latest.zip" \
+    && unzip -q /tmp/cmdline-tools.zip -d "${ANDROID_HOME}/cmdline-tools" \
+    && mv "${ANDROID_HOME}/cmdline-tools/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest" \
+    && rm /tmp/cmdline-tools.zip
+
+# build-tools 35.0.0 — версия по умолчанию Android Gradle Plugin 8.13 из шаблона Capacitor 8:
+# без неё Gradle пытается доставить пакет сам и падает — каталог SDK пользователю хоста
+# не открыт на запись. 36.0.0 даёт apksigner и aapt для проверки готового APK.
+# platform-tools Gradle тоже ищет при каждой сборке; без пакета сборка проходит, но с той же
+# неудачной попыткой доустановки и предупреждением в логе.
+RUN yes | sdkmanager --licenses > /dev/null \
+    && sdkmanager "platforms;android-36" "build-tools;36.0.0" "build-tools;35.0.0" "platform-tools"
+
+# Кэш Gradle — именованный том docker-compose.yml. Docker наполняет новый том содержимым
+# и правами этого каталога, поэтому каталог открыт на запись пользователю хоста.
+RUN mkdir -p /gradle && chmod 1777 /gradle
+
+WORKDIR /app/android

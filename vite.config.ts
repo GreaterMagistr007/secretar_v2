@@ -5,11 +5,16 @@ import { VitePWA } from 'vite-plugin-pwa';
 /**
  * Конфигурация сборки.
  * base — подкаталог репозитория на GitHub Pages: при base '/' ассеты не находятся.
+ *
+ * Режим `capacitor` (`npm run build:android`) — сборка для Android-приложения: WebView
+ * открывает index.html из ассетов APK, поэтому пути относительные, а service worker не
+ * подключается — файлы и так лежат в APK, а кэш SW держал бы старую версию после обновления.
  */
-export default defineConfig({
-  base: '/secretar_v2/',
+export default defineConfig(({ mode }) => ({
+  base: mode === 'capacitor' ? './' : '/secretar_v2/',
   plugins: [
     svelte(),
+    mode !== 'capacitor' &&
     VitePWA({
       // Обновление подхватывается при следующем открытии, без действий пользователя.
       registerType: 'autoUpdate',
@@ -83,4 +88,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

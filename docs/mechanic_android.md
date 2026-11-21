@@ -1,0 +1,118 @@
+---
+name: mechanic_android
+description: Android-приложение Secretar — упаковка веб-сборки через Capacitor, сборка APK в контейнере, подпись постоянным ключом, версия
+type: project
+---
+
+# Механика: Android-приложение
+
+Реализована 2026-11-21, этап 4 ([plan_stage_04_android.md](plan_stage_04_android.md)). Закрывает требование Т-29 (Android-приложение) по решениям Р-20 (Capacitor) и Р-30 (Android собирается сейчас). Уведомление о задачах дня — отдельная механика, [mechanic_notifications.md](mechanic_notifications.md).
+
+## Модели
+Нет. Данные APK — своя IndexedDB внутри WebView приложения, с браузерной версией не связаны (требование Т-29). Перенос данных между ними — вне этапа, в бэклоге.
+
+## Миграции
+Нет.
+
+## Маршруты
+Те же хэш-маршруты, что в браузере (решение Р-19): WebView открывает `index.html` из ассетов APK, хэш-роутинг работает без сервера.
+
+## Контроллеры
+Нет.
+
+## Views
+Тот же веб-код. Отличия режима сборки `capacitor` — в разделе «Сервисы».
+
+## Сервисы
+
+### Две сборки Vite
+`vite.config.ts` — функция от режима:
+- обычная сборка (`npm run build`, GitHub Pages) — `base: '/secretar_v2/'`, service worker и манифест PWA, как раньше;
+- `npm run build:android` (`vite build --mode capacitor`) — `base: './'`, плагин PWA не подключается: ассеты и так лежат в APK, а кэш service worker держал бы старую версию после обновления APK.
+
+Выход обеих — `dist/`: отдельный каталог не заводится, сборки идут разными командами и в разных местах (Pages собирает workflow GitHub). В `index.html` ссылки на favicon и apple-touch-icon записаны абсолютными путями `/secretar_v2/...`; в WebView они не находятся, но и не нужны — там нет вкладки и закладок. Сборку это не ломает.
+
+### Capacitor
+- `capacitor.config.json` в корне: `appId` `io.github.greatermagistr007.secretar`, `appName` «Секретарь», `webDir` `dist`.
+- Пакеты (версии точные): `@capacitor/core` и `@capacitor/android` 8.6.2 в `dependencies`, `@capacitor/cli` 8.6.2 в `devDependencies` — обоснование в [tech_stack.md](tech_stack.md).
+- Каталог `android/` создан `npx cap add android` (шаблон Capacitor 8.6.2: Android Gradle Plugin 8.13.0, Gradle 8.14.3, `compileSdk`/`targetSdk` 36, `minSdk` 24, Java 21) и коммитится. Вне git — то, что пересоздаёт `npx cap sync android`: `android/app/src/main/assets/public` (копия `dist/`), `capacitor.config.json` и `capacitor.plugins.json` в ассетах, `android/capacitor-cordova-android-plugins/`, а также каталоги `build/` (`android/.gitignore` шаблона).
+- Правки шаблона: `MainActivity` регистрирует локальный плагин `TaskNotifierPlugin`; в манифесте — приёмник и два разрешения уведомления; удалены шаблонные `ExampleUnitTest`, `ExampleInstrumentedTest` и неиспользуемые drawable-заготовки иконки.
+
+### Иконка и заставка
+Сгенерированы из `public/icons/icon.svg` (ImageMagick с поддержкой SVG в контейнере `alpine`):
+- `mipmap-*/ic_launcher.png` — значок как есть, 48 dp на каждую плотность;
+- `mipmap-*/ic_launcher_round.png` — тот же значок, скругление до круга;
+- `mipmap-*/ic_launcher_foreground.png` — передний слой адаптивной иконки, 108 dp: только дуга буквы на прозрачном фоне, с полями (`viewBox="-77 -77 666 666"`), чтобы после маски дуга занимала примерно ту же долю, что в иконке PWA; фон слоя — цвет `#2F4858` в `values/ic_launcher_background.xml`;
+- `drawable*/splash.png` — заставка шаблона (логотип Capacitor) заменена значком по центру на фоне `#f6f7f9` (цвет `background_color` манифеста PWA), размеры файлов прежние;
+- `drawable/ic_stat_tasks.xml` — одноцветный значок уведомления, та же дуга векторным путём.
+
+Команды генерации:
+```
+# из корня проекта, в контейнере alpine с imagemagick и imagemagick-svg
+sed 's/rx="112" ry="112"/rx="256" ry="256"/' public/icons/icon.svg > round.svg
+sed -e '/<rect/d' -e 's/viewBox="0 0 512 512"/viewBox="-77 -77 666 666"/' public/icons/icon.svg > fg.svg
+magick -background none -density 384 public/icons/icon.svg -resize 192x192 PNG32:.../mipmap-xxxhdpi/ic_launcher.png
+magick -background none -density 384 round.svg -resize 192x192 PNG32:.../mipmap-xxxhdpi/ic_launcher_round.png
+magick -background none -density 384 fg.svg -resize 432x432 PNG32:.../mipmap-xxxhdpi/ic_launcher_foreground.png
+# заставка: значок 40 % меньшей стороны по центру на #f6f7f9
+magick -size WxH xc:'#f6f7f9' icon.png -gravity center -composite PNG24:.../splash.png
+```
+Размеры по плотностям: mdpi ×1, hdpi ×1,5, xhdpi ×2, xxhdpi ×3, xxxhdpi ×4 от 48 dp (значок) и 108 dp (передний слой).
+
+### Сборка APK
+Всё — в docker, одной командой из корня проекта:
+```
+env UID=$(id -u) GID=$(id -g) docker compose run --rm android
+```
+Два сервиса `docker-compose.yml`:
+1. `android-web` (образ `secretar-node`, `node:22-alpine`) — `npm install`, `npm run build:android`, `npx cap sync android`.
+2. `android` (образ `secretar-android` из `Dockerfile.android`, запускается после успешного `android-web` через `depends_on: condition: service_completed_successfully`) — `./gradlew --no-daemon test assembleRelease`, затем копия `app/build/outputs/apk/release/app-release.apk` в `./secretar.apk` (корень проекта, вне git).
+
+Почему два образа, а не один с Node и JDK: `node_modules/` общий с dev-контейнером на alpine (musl). `npm install` в glibc-образе заменил бы нативные бинарники сборщика (rolldown) на glibc-варианты, и dev-контейнер перестал бы собирать. Gradle Node не нужен — `capacitor.settings.gradle` берёт исходники `@capacitor/android` прямо из `node_modules/`.
+
+`Dockerfile.android`: `eclipse-temurin:21-jdk-noble`, Android command-line tools (сборка 13114758), `platforms;android-36`, `build-tools;36.0.0` (apksigner и aapt для проверки) и `build-tools;35.0.0` — это версия по умолчанию Android Gradle Plugin 8.13; без неё Gradle пытается доставить пакет сам и падает, потому что каталог SDK пользователю хоста не открыт на запись (так и упала первая сборка). Лицензии SDK принимаются при сборке образа. Кэш Gradle — именованный том `gradle-cache` (`GRADLE_USER_HOME=/gradle`); каталог в образе открыт на запись (`1777`), потому что Docker наполняет новый том содержимым и правами этого каталога. Первая сборка скачивает дистрибутив Gradle и зависимости, следующие берут их из тома.
+
+`test` прогоняет JUnit-тесты модуля `app` (debug и release) — без зелёных тестов APK не собирается.
+
+### Подпись
+- Ключ — `release.keystore` в корне проекта: PKCS12, RSA 4096, срок 36 500 дней, alias `secretar`. Сгенерирован один раз `keytool` в контейнере `eclipse-temurin:21-jdk-noble`, права файла 600.
+- Пароли — `.env.android` в корне проекта, права 600; передаются в контейнер через `env_file` сервиса `android`. Переменные: `SECRETAR_KEYSTORE_PASSWORD`, `SECRETAR_KEY_ALIAS`, `SECRETAR_KEY_PASSWORD` (у PKCS12 пароль ключа совпадает с паролем хранилища).
+- Оба файла вне git: `release.keystore` — явной строкой в `.gitignore`, `.env.android` покрыт шаблоном `.env.*`. **Потеря ключа или паролей = обновление поверх установленного APK невозможно**: Android ставит новую версию только с той же подписью, иначе — удаление приложения вместе с данными. Ключ и `.env.android` нужно хранить в резервной копии вне репозитория и переносить на другое устройство разработки вручную.
+- `android/app/build.gradle`: `signingConfigs.release` читает переменные окружения, файл ключа — `rootProject.file('../release.keystore')`. `env_file` объявлен необязательным (`path: .env.android`, `required: false`, Compose 2.24+): обязательный ломал загрузку всего проекта compose, и на устройстве без файла не запускался ни один сервис, включая `dev`, `build` и `check`. Теперь без `.env.android` остальные сервисы работают, а сборка APK без паролей должна остановиться на подписи в Gradle (сборкой без файла не проверялось). Проверено `docker compose config -q` на копии compose без файла и в корне с файлом — код 0 в обоих случаях.
+
+Команда, которой создан ключ (пароль берётся из `.env.android`, на экран не выводится):
+```
+docker run --rm --env-file .env.android -v "$PWD":/app -w /app --user "$(id -u):$(id -g)" \
+  eclipse-temurin:21-jdk-noble sh -c 'keytool -genkeypair -keystore release.keystore \
+  -storetype PKCS12 -alias "$SECRETAR_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 36500 \
+  -storepass "$SECRETAR_KEYSTORE_PASSWORD" -keypass "$SECRETAR_KEY_PASSWORD" \
+  -dname "CN=Secretar, O=greatermagistr007"'
+```
+
+### Версия
+- `versionName` берётся из поля `version` в `package.json` (`JsonSlurper` в `android/app/build.gradle`) — второго места с номером версии нет.
+- `versionCode` — целое в `android/app/build.gradle`, сейчас `1`. **Перед каждой новой выдачей APK его нужно увеличить на единицу**: Android не ставит APK поверх установленного с тем же или меньшим `versionCode`. Порядок выдачи: поднять `versionCode` (и при желании `version` в `package.json`) → собрать командой выше → проверить → закоммитить поднятый номер вместе с изменениями.
+
+## Jobs
+Нет.
+
+## API
+Нет.
+
+## Настройки
+`.env.android` — см. «Подпись». Имена переменных без значений — в `.env.example` в корне (коммитится, исключение `!.env.example` в `.gitignore`); настоящие значения — только в `.env.android` вне git.
+
+## Примечания
+
+### Проверка готового APK
+Из корня проекта, в том же образе:
+```
+docker run --rm -v "$PWD":/app -w /app secretar-android apksigner verify --print-certs secretar.apk
+docker run --rm -v "$PWD":/app -w /app secretar-android aapt dump badging secretar.apk
+docker run --rm -v "$PWD":/app -w /app secretar-android aapt dump permissions secretar.apk
+```
+
+### Известные границы
+- **Данные APK и браузера раздельны**: задачи, созданные в браузере, в APK не видны и наоборот (требование Т-29).
+- **Обновление веб-части приходит только с новым APK**: service worker в APK не работает, публикация на Pages установленное приложение не меняет.
+- **Подпись привязана к одному ключу**, см. «Подпись».

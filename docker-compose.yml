@@ -39,3 +39,46 @@ services:
     volumes:
       - .:/app
     command: sh -c "npm install && npm run check"
+
+  # Сборка APK (требование Т-29) — два шага, запуск одной командой:
+  #   env UID=$(id -u) GID=$(id -g) docker compose run --rm android
+  # Первый шаг (android-web) собирает веб-часть в режиме capacitor и копирует её в android/,
+  # второй — прогоняет JUnit-тесты и собирает подписанный APK в ./secretar.apk.
+  # Пароли ключа подписи — в .env.android (вне git, имена — в .env.example), см. docs/mechanic_android.md.
+  android-web:
+    build: .
+    image: secretar-node
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    environment:
+      npm_config_cache: /tmp/.npm
+      HOME: /tmp
+    volumes:
+      - .:/app
+    command: sh -c "npm install && npm run build:android && npx cap sync android"
+
+  android:
+    build:
+      context: .
+      dockerfile: Dockerfile.android
+    image: secretar-android
+    user: "${UID:-1000}:${GID:-1000}"
+    depends_on:
+      android-web:
+        condition: service_completed_successfully
+    # Необязательный: без файла остальные сервисы compose работают, падает только подпись в Gradle.
+    env_file:
+      - path: .env.android
+        required: false
+    environment:
+      HOME: /tmp
+      GRADLE_USER_HOME: /gradle
+    volumes:
+      - .:/app
+      - gradle-cache:/gradle
+    command: >-
+      sh -c "./gradlew --no-daemon test assembleRelease
+      && cp app/build/outputs/apk/release/app-release.apk /app/secretar.apk"
+
+volumes:
+  gradle-cache:

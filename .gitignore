@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 .claude/settings.local.json
+# Ключ подписи APK (пароли к нему — в .env.android, его покрывает .env.*)
+release.keystore
+
+# Собранный APK
+secretar.apk
 
 # Зависимости и сборка
 node_modules/

@@ -7,12 +7,21 @@
  */
 
 /** Маршруты без параметров. */
-export type StaticRoute = '/calendar' | '/settings' | '/settings/theme';
+export type StaticRoute =
+  | '/calendar'
+  | '/settings'
+  | '/settings/theme'
+  | '/settings/notifications';
 
 /** Известные маршруты приложения; у '/task' есть параметр — идентификатор задачи. */
 export type Route = StaticRoute | '/task';
 
-const STATIC_ROUTES: readonly StaticRoute[] = ['/calendar', '/settings', '/settings/theme'];
+const STATIC_ROUTES: readonly StaticRoute[] = [
+  '/calendar',
+  '/settings',
+  '/settings/theme',
+  '/settings/notifications',
+];
 
 /** Начало пути экрана задачи (требование Т-28): #/task/<id>. */
 const TASK_PREFIX = '/task/';

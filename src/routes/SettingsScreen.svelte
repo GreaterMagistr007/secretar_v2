@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * Экран «Настройки» (требование Т-19): единственная кнопка — «Выбор темы»,
-   * она ведёт на экран выбора темы.
+   * Экран «Настройки»: кнопка «Выбор темы» ведёт на экран выбора темы (требование Т-19),
+   * под ней кнопка «Уведомления» — на экран уведомлений (требование Т-30).
    */
   import { router } from '../lib/router.svelte';
 </script>
@@ -10,6 +10,7 @@
   <h1 class="title">Настройки</h1>
 
   <a class="button" href={router.href('/settings/theme')}>Выбор темы</a>
+  <a class="button" href={router.href('/settings/notifications')}>Уведомления</a>
 </section>
 
 <style>
