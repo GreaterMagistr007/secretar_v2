@@ -57,3 +57,10 @@ scratchpad-директорию свой скрипт расчёта контр�
 **Второе следствие:** «агент молчит» не равно «агент умер» и не равно «инструмент отказал» — у молчания
 бывает третья причина: агент переделывает работу, испорченную соседом. Проверка связи стоит дёшево и
 отвечает на это точнее, чем догадки по размеру файла.
+
+## Telegram, GitHub и эмулятор: что работает (2026-11-21)
+- **`tlg-send` умеет только текст.** APK отправлялся Bot API напрямую: токен и чат читаются из `~/.config/tlg-send/config` (строки `token=`, `chat_default=`) в переменные внутри одной команды, на экран не выводятся; `curl -F chat_id=... -F document=@secretar.apk --form-string caption=... https://api.telegram.org/bot$T/sendDocument` → ждать `http=200`.
+- **Скриншот владельца из Telegram:** `tlg-read --peek --json --timeout 0` → `file_id` самой большой `photo` → `getFile?file_id=` → скачать `https://api.telegram.org/file/bot$T/<file_path>` во временный каталог `memory/tmp_*`; после разбора — `tlg-read --timeout 0`, чтобы сдвинуть offset, и удалить каталог.
+- **`gh` не установлен.** Статус публикации Pages — публичный API без токена: `curl -s https://api.github.com/repos/GreaterMagistr007/secretar_v2/actions/runs?per_page=1`. Ожидание через цикл с `gh` зациклилось: ошибка «команда не найдена» по-русски не совпала с шаблоном `*rror*`.
+- **Эмулятор Android для локальных тестов APK:** docker-образ `secretar-emu-check` (Android 15, `google_apis` x86_64), запуск с `--device /dev/kvm`, headless swiftshader — протокол команд в `findings_android_emulator.md`, точный будильник и Doze — в `findings_exact_alarm.md`. Владелец велел образ не удалять. Часы переводить `cmd alarm set-time` минимум за 2 минуты до события (иначе окно будильника сжимается само и проверка ничего не доказывает), процесс убивать `am kill`, не `force-stop` (тот снимает будильники).
+- **Браузерная проверка с подменой часов:** `playwright-core` из кэша npx, `context.timezoneId` + `page.clock.install({ time })` + `page.clock.runFor(ms)` — так проверен переход выбора дня через полночь без ожидания.
