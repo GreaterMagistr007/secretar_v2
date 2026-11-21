@@ -7,7 +7,7 @@
    * внутри области, которая существовала до них.
    */
   import { toast } from '../toast.svelte';
-  import { toastDuration } from '../toast';
+  import { TOAST_TIMING } from '../toast';
 </script>
 
 <div class="region" aria-live="polite">
@@ -17,7 +17,8 @@
       <div
         class="toast toast--{toast.current.type}"
         role={toast.current.type === 'error' ? 'alert' : undefined}
-        style:--toast-duration="{toastDuration(toast.current.type)}ms"
+        style:--toast-visible="{TOAST_TIMING[toast.current.type].visibleMs}ms"
+        style:--toast-fade="{TOAST_TIMING[toast.current.type].fadeMs}ms"
       >
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           {#if toast.current.type === 'error'}
@@ -67,38 +68,37 @@
     padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-sm);
     border-left: 4px solid var(--toast-accent);
     border-radius: var(--radius-md);
-    background: var(--color-surface);
+    /* Поверх фона страницы: в части тем (v18 «Стекло») surface полупрозрачна, и без
+       подложки текст сообщения ложился бы на текст экрана под ним. */
+    background:
+      linear-gradient(var(--color-surface), var(--color-surface)),
+      var(--color-bg);
     box-shadow:
       var(--shadow-card),
       0 4px 16px rgb(0 0 0 / 0.16);
     color: var(--color-text);
     line-height: 1.4;
-    pointer-events: none;
-    animation-duration: var(--toast-duration);
-    animation-timing-function: linear;
-    animation-fill-mode: both;
+    /* Видно visibleMs (задержка), затем линейно гаснет за fadeMs — оба из TOAST_TIMING.
+       Из DOM сообщение убирает таймер логики, а не конец анимации. */
+    animation: toast-fade var(--toast-fade) linear var(--toast-visible) both;
   }
 
-  /*
-   * Тип виден значком и полосой; фон и текст общие, их контраст проверен по темам (Р-26).
-   * Имя анимации — прямо здесь, а не через CSS-переменную: Svelte переименовывает
-   * @keyframes компонента (svelte-<хэш>-…) и переписывает имя только в самих свойствах.
-   */
+  /* Тип виден формой значка и цветом полосы; фон и текст общие. */
   .toast--success {
     --toast-accent: var(--color-primary);
-    animation-name: toast-fade-success;
   }
 
   .toast--error {
     --toast-accent: var(--color-weekend);
-    animation-name: toast-fade-error;
   }
 
   .icon {
     flex: none;
     width: 22px;
     height: 22px;
-    color: var(--toast-accent);
+    /* Цветом текста, а не акцента: primary в части тем на surface почти не виден
+       (v17 — 1,32:1); тип различим формой значка. */
+    color: var(--color-text);
   }
 
   .text {
@@ -106,34 +106,18 @@
     overflow-wrap: anywhere;
   }
 
-  /*
-   * Доли «видно» от полного времени показа — из TOAST_TIMING в toast.ts:
-   * успех 1000 из 3000 мс, ошибка 4000 из 6000 мс. Меняются вместе с константами.
-   * Сообщение снимает таймер логики, а не конец анимации.
-   */
-  @keyframes toast-fade-success {
-    0%,
-    33.333% {
+  @keyframes toast-fade {
+    from {
       opacity: 1;
     }
 
-    100% {
+    to {
       opacity: 0;
     }
   }
 
-  @keyframes toast-fade-error {
-    0%,
-    66.667% {
-      opacity: 1;
-    }
-
-    100% {
-      opacity: 0;
-    }
-  }
-
-  /* Без затухания: видно всё время показа, затем снимается таймером. */
+  /* Без затухания: видно всё время показа, затем снимается таймером. Перекрывает правило
+     .toast: специфичность одинаковая, @media стоит ниже. */
   @media (prefers-reduced-motion: reduce) {
     .toast {
       animation: none;

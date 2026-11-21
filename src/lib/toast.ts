@@ -29,7 +29,7 @@ export interface ToastTiming {
 /**
  * Длительности по типам — выбор владельца 2026-11-21, вариант 8.б (решение Р-35): успех
  * 1 с видно + 2 с затухания, ошибка 4 с + 2 с — фразу «Не понял: «…»» за 1 с не прочитать.
- * Доли «видно» продублированы в @keyframes компонента Toast.svelte: меняются вместе.
+ * Компонент Toast.svelte берёт отсюда задержку и длительность затухания.
  */
 export const TOAST_TIMING: Readonly<Record<ToastType, ToastTiming>> = {
   success: { visibleMs: 1000, fadeMs: 2000 },
