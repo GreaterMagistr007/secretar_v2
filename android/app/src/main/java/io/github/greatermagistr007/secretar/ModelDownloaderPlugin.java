@@ -29,7 +29,7 @@ public class ModelDownloaderPlugin extends Plugin {
     /** Подкаталог моделей в {@code getExternalFilesDir}. */
     static final String MODELS_DIR = "models";
 
-    private static final String PREFS = "model_downloader";
+    static final String PREFS = "model_downloader";
 
     private static final String KEY_ID = "download_id";
 
@@ -40,7 +40,7 @@ public class ModelDownloaderPlugin extends Plugin {
      * записи DownloadManager считается скачанной моделью: DownloadManager сразу выделяет файл
      * полного размера, и по длине недокачанный файл от готового не отличить.
      */
-    private static final String KEY_VERIFIED = "verified_file";
+    static final String KEY_VERIFIED = "verified_file";
 
     private static final long NO_DOWNLOAD = -1;
 

@@ -13,6 +13,7 @@
   import { formatLongDate, toIsoDate, todayIso } from '../lib/date';
   import TaskCreateModal from '../lib/components/TaskCreateModal.svelte';
   import DayTaskList from '../lib/components/DayTaskList.svelte';
+  import VoiceButton from '../lib/components/VoiceButton.svelte';
 
   const MONTHS = [
     'Январь',
@@ -374,8 +375,9 @@
   }
 
   /**
-   * Сохранение задачи из модалки. Ошибку намеренно не глушим: модалка остаётся открытой
-   * и показывает сообщение, введённое не пропадает.
+   * Сохранение задачи из модалки и голосовой кнопки. Ошибку намеренно не глушим: модалка
+   * остаётся открытой и показывает сообщение, введённое не пропадает; голосовая кнопка
+   * показывает её всплывающим сообщением.
    */
   async function createTask(data: NewTask): Promise<void> {
     const created = await taskRepository.create(data);
@@ -519,6 +521,8 @@
     />
   </svg>
 </button>
+
+<VoiceButton onCreate={createTask} />
 
 {#if modalOpen}
   <TaskCreateModal

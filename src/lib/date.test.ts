@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { formatLongDate, isIsoDate, isStaleSelection, toIsoDate, todayIso } from './date';
+import { formatLongDate, formatWeekdayDate, isIsoDate, isStaleSelection, toIsoDate, todayIso } from './date';
 
 describe('isStaleSelection', () => {
   it('выбор тех же суток не устарел', () => {
@@ -121,5 +121,30 @@ describe('todayIso', () => {
     vi.setSystemTime(new Date(2026, 0, 7, 9, 0, 0));
 
     expect(todayIso()).toBe('2026-01-07');
+  });
+});
+
+describe('formatWeekdayDate', () => {
+  it('краткий день недели и дата без года в том же году', () => {
+    expect(formatWeekdayDate('2026-11-23', '2026-11-21')).toBe('пн, 23 ноября');
+  });
+
+  it('воскресенье и суббота — края таблицы дней', () => {
+    expect(formatWeekdayDate('2026-11-22', '2026-11-21')).toBe('вс, 22 ноября');
+    expect(formatWeekdayDate('2026-11-21', '2026-11-21')).toBe('сб, 21 ноября');
+  });
+
+  it('с годом, если год не текущий — и вперёд, и назад', () => {
+    expect(formatWeekdayDate('2027-01-01', '2026-12-31')).toBe('пт, 1 января 2027');
+    expect(formatWeekdayDate('2025-12-31', '2026-01-01')).toBe('ср, 31 декабря 2025');
+  });
+
+  it('29 февраля високосного года', () => {
+    expect(formatWeekdayDate('2028-02-29', '2028-01-01')).toBe('вт, 29 февраля');
+  });
+
+  it('непонятную строку возвращает как есть', () => {
+    expect(formatWeekdayDate('2026-02-30', '2026-01-01')).toBe('2026-02-30');
+    expect(formatWeekdayDate('', '2026-01-01')).toBe('');
   });
 });

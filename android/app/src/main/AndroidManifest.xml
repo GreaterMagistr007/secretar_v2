@@ -7,7 +7,8 @@
          не сужает разрешение: domain-config принимает только имена и отдельные адреса, а не
          диапазоны локальной сети, — разрешить пришлось бы так же на все адреса (docs/mechanic_android.md).
          fullBackupContent (Android 11 и ниже) и dataExtractionRules (Android 12+): модель для голоса
-         не попадает в резервную копию — иначе копия превысила бы квоту и не делалась бы вовсе. -->
+         не попадает в резервную копию — иначе копия превысила бы квоту и не делалась бы вовсе;
+         журнал голосовых нажатий с записями звука — тоже. -->
     <application
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
@@ -33,6 +34,12 @@
             </intent-filter>
 
         </activity>
+
+        <!-- GPU для модели голоса (LiteRT-LM): системные библиотеки OpenCL нужно запросить явно,
+             иначе с targetSdk 31+ приложению они не видны. required="false" — телефон без них
+             ставит приложение, модель грузится на CPU (docs/mechanic_android.md). -->
+        <uses-native-library android:name="libvndksupport.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -70,4 +77,8 @@
     <uses-permission
         android:name="android.permission.SCHEDULE_EXACT_ALARM"
         android:maxSdkVersion="32" />
+    <!-- Голосовая кнопка (решение Р-34): запись с микрофона — запрос при первом нажатии;
+         вибрация — сигнал «запись пошла», разрешение обычное, выдаётся при установке. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

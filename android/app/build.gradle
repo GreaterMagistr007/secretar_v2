@@ -12,7 +12,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Растёт на единицу с каждым выданным APK — иначе Android не поставит его поверх прежнего
         // (docs/mechanic_android.md, раздел «Версия»).
-        versionCode 5
+        versionCode 6
         versionName packageJson.version
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -54,6 +54,9 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Модель для голоса на устройстве (решение Р-34): LiteRT-LM вызывается из Java, Kotlin-плагин
+    // Gradle не нужен — Kotlin-библиотеки приходят транзитивно (docs/mechanic_android.md).
+    implementation "com.google.ai.edge.litertlm:litertlm-android:0.19.1"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

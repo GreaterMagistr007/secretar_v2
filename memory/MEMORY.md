@@ -68,3 +68,5 @@ type: project
 - [findings_skeptic_voice_audio.md](findings_skeptic_voice_audio.md) — ревью выбора локальной модели, находки С-1…С-15 (нет ToolChoice.Required в 0.19.1, Java вместо Kotlin, опыт на хосте первым).
 - [progress_voice_toast.md](progress_voice_toast.md), [findings_skeptic_toast.md](findings_skeptic_toast.md) — всплывающее сообщение: журнал реализации, ревью Т-1…Т-10.
 - [progress_voice_model_download.md](progress_voice_model_download.md), [progress_voice_model_download_fix.md](progress_voice_model_download_fix.md), [findings_skeptic_model_download.md](findings_skeptic_model_download.md) — докачка модели (Р-36): журналы реализации и исправлений, ревью Д-1…Д-12.
+- [progress_voice_button.md](progress_voice_button.md) — голосовая кнопка и журнал нажатий (Р-37): журнал реализации, факты API LiteRT-LM 0.19.1, проверка на эмуляторе.
+- [findings_skeptic_voice_button.md](findings_skeptic_voice_button.md) — ревью голосовой кнопки, находки Г-1…Г-10 (тишина, гонка нажатий, полнота журнала); Г-1…Г-8 исправлены, Г-9 и Г-10 оставлены.

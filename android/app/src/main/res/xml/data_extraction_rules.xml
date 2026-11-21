@@ -3,14 +3,17 @@
      Правила те же, что в backup_rules.xml для Android 11 и ниже: модель для голоса (2,6 ГБ)
      и состояние её загрузки исключены, всё остальное, включая задачи в данных WebView, остаётся.
      При переносе квоты нет, но номер загрузки DownloadManager на другом телефоне ничего не
-     значит, а модель быстрее скачать заново по локальной сети (docs/mechanic_voice.md). -->
+     значит, а модель быстрее скачать заново по локальной сети (docs/mechanic_voice.md).
+     Журнал голосовых нажатий с записями звука (voice-logs) — отладочный, тоже исключён. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="external" path="models" />
         <exclude domain="sharedpref" path="model_downloader.xml" />
+        <exclude domain="external" path="voice-logs" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="external" path="models" />
         <exclude domain="sharedpref" path="model_downloader.xml" />
+        <exclude domain="external" path="voice-logs" />
     </device-transfer>
 </data-extraction-rules>

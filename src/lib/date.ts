@@ -72,6 +72,25 @@ export function formatLongDate(iso: string): string {
   return `${day} ${MONTHS_GENITIVE[month - 1]} ${year}`;
 }
 
+/** Краткие дни недели по номеру `Date.getDay()`: воскресенье — 0. */
+const WEEKDAYS_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+
+/**
+ * Дата с кратким днём недели: «пн, 23 ноября». Год дописывается, только если он не тот же,
+ * что у `today`, — «пт, 1 января 2027». Непонятную строку возвращает как есть.
+ */
+export function formatWeekdayDate(iso: string, today: string): string {
+  if (!isIsoDate(iso)) {
+    return iso;
+  }
+
+  const [year, month, day] = iso.split('-').map(Number);
+  const weekday = WEEKDAYS_SHORT[new Date(year, month - 1, day).getDay()];
+  const tail = today.slice(0, 4) === String(year) ? '' : ` ${year}`;
+
+  return `${weekday}, ${day} ${MONTHS_GENITIVE[month - 1]}${tail}`;
+}
+
 /**
  * Устарел ли запомненный выбор: он сделан не в те сутки, что идут сейчас.
  *

@@ -3,8 +3,10 @@
      в data_extraction_rules.xml для Android 12+: модель для голоса (2,6 ГБ) и состояние её
      загрузки в копию не попадают, всё остальное, включая задачи в данных WebView, — попадает.
      Модель больше квоты облачной копии (25 МБ), с ней копия приложения не делалась бы вовсе;
-     после восстановления она скачивается заново (docs/mechanic_voice.md). -->
+     после восстановления она скачивается заново (docs/mechanic_voice.md). Журнал голосовых
+     нажатий с записями звука (voice-logs) — отладочный, в копию тоже не попадает. -->
 <full-backup-content>
     <exclude domain="external" path="models" />
     <exclude domain="sharedpref" path="model_downloader.xml" />
+    <exclude domain="external" path="voice-logs" />
 </full-backup-content>

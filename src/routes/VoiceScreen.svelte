@@ -4,6 +4,9 @@
    * в локальной сети. Скачивает Android-приложение (мост model-downloader.ts); в браузере экран
    * показывает только выбор и пояснение. Прогресс опрашивается раз в секунду, пока экран открыт;
    * сама загрузка идёт и без экрана — её ведёт система.
+   *
+   * Раздел «Журнал» (решение Р-37): сколько нажатий голосовой кнопки записано, выгрузка архива
+   * журнала с записями звука через меню «Поделиться» и очистка.
    */
   import { untrack } from 'svelte';
   import { router } from '../lib/router.svelte';
@@ -29,6 +32,7 @@
     saveVoiceModel,
   } from '../lib/voice-models';
   import type { VoiceModel } from '../lib/voice-models';
+  import { clearVoiceLog, shareVoiceLog, voiceLogInfo } from '../lib/voice';
 
   /** Период опроса прогресса, мс. */
   const POLL_MS = 1000;
@@ -43,6 +47,14 @@
   let busy = $state(false);
   /** Текст отказа последнего чтения состояния; null — прочитано. */
   let readError = $state<string | null>(null);
+
+  /** Сколько нажатий в журнале; null — ещё не прочитано или это браузер. */
+  let logEntries = $state<number | null>(null);
+  /**
+   * Размер каталога журнала в байтах. Кнопки блокируются по нему, а не по числу нажатий:
+   * запись о загрузке модели (с ошибкой GPU или CPU) лежит в журнале и до первого нажатия.
+   */
+  let logBytes = $state(0);
 
   const downloading = $derived(modelState?.state === 'downloading');
 
@@ -98,7 +110,21 @@
   // перезапускался бы при смене модели вдобавок к вызову из selectModel.
   $effect(() => {
     untrack(() => void refresh());
+
+    // Не через run: чтение числа записей не должно снимать блокировку идущей команды.
+    if (available) {
+      refreshLog().catch((error: unknown) =>
+        showToast('error', `Не удалось прочитать журнал: ${errorText(error)}`),
+      );
+    }
   });
+
+  async function refreshLog(): Promise<void> {
+    const info = await voiceLogInfo();
+
+    logEntries = info.entries;
+    logBytes = info.bytes;
+  }
 
   // Опрос только пока модель качается; конец загрузки снимает таймер.
   $effect(() => {
@@ -167,6 +193,20 @@
       if (modelState?.state !== 'downloaded') {
         showToast('success', 'Загрузка отменена');
       }
+    });
+  }
+
+  function shareLog(): Promise<void> {
+    return run(async () => {
+      await shareVoiceLog();
+    });
+  }
+
+  function clearLog(): Promise<void> {
+    return run(async () => {
+      await clearVoiceLog();
+      await refreshLog();
+      showToast('success', 'Журнал очищен');
     });
   }
 
@@ -263,6 +303,30 @@
       Удалить модель
     </button>
   {/if}
+
+  {#if available}
+    <section class="group" aria-labelledby="voice-log-title">
+      <h2 class="label" id="voice-log-title">Журнал</h2>
+      <p class="status">
+        {logEntries === null ? 'Записей: …' : `Записей: ${logEntries}`}
+      </p>
+      <span class="muted">
+        Каждое нажатие голосовой кнопки: запись звука, что отдано модели и что она ответила.
+        Хранятся последние 30.
+      </span>
+      <button type="button" class="button" disabled={busy || logBytes === 0} onclick={shareLog}>
+        Поделиться журналом
+      </button>
+      <button
+        type="button"
+        class="button button--secondary"
+        disabled={busy || logBytes === 0}
+        onclick={clearLog}
+      >
+        Очистить журнал
+      </button>
+    </section>
+  {/if}
 </section>
 
 <style>
@@ -316,7 +380,9 @@
   }
 
   .label {
+    margin: 0;
     padding: 0;
+    font-weight: normal;
     color: var(--color-text-muted);
     font-size: 0.8rem;
   }

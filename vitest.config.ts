@@ -34,6 +34,8 @@ export default defineConfig({
         'src/lib/toast.ts',
         'src/lib/voice-models.ts',
         'src/lib/model-downloader.ts',
+        'src/lib/voice-command.ts',
+        'src/lib/voice.ts',
       ],
       // types.ts — только контракт; dexie-repository.ts и repository.ts — слой
       // доступа к базе, он покрывается не тестами, а проверкой в приложении.

@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         // node_modules только плагины-пакеты, а эти живут в коде приложения.
         registerPlugin(TaskNotifierPlugin.class);
         registerPlugin(ModelDownloaderPlugin.class);
+        registerPlugin(VoicePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
