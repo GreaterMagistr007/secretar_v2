@@ -157,6 +157,37 @@
     <h2 class="title" id="task-create-title">Новая задача</h2>
 
     <form class="form" onsubmit={handleSubmit} novalidate>
+      <!-- Дата и приоритет — одной строкой над текстом (указание владельца 2026-11-21). -->
+      <div class="row">
+        <label class="field">
+          <span class="field-label">Дата</span>
+          <input
+            class="input"
+            type="date"
+            bind:value={date}
+            onblur={() => (dateTouched = true)}
+            aria-invalid={dateTouched && dateError !== null}
+            aria-describedby={dateTouched && dateError !== null ? 'task-date-error' : undefined}
+          />
+          {#if dateTouched && dateError !== null}
+            <span class="error" id="task-date-error">{dateError}</span>
+          {/if}
+        </label>
+
+        <!-- Список, а не чипы: три чипа рядом с датой в строку не помещаются. -->
+        <label class="field">
+          <span class="field-label">Приоритет</span>
+          <span class="with-dot">
+            <span class="dot" style="background: {PRIORITY_COLOR[priority]}"></span>
+            <select class="input input--dot" bind:value={priority}>
+              {#each PRIORITY_ORDER as value (value)}
+                <option {value}>{PRIORITY_LABELS[value]}</option>
+              {/each}
+            </select>
+          </span>
+        </label>
+      </div>
+
       <label class="field">
         <span class="field-label">Текст</span>
         <textarea
@@ -172,40 +203,6 @@
           <span class="error" id="task-text-error">{textError}</span>
         {/if}
       </label>
-
-      <label class="field">
-        <span class="field-label">Дата</span>
-        <input
-          class="input"
-          type="date"
-          bind:value={date}
-          onblur={() => (dateTouched = true)}
-          aria-invalid={dateTouched && dateError !== null}
-          aria-describedby={dateTouched && dateError !== null ? 'task-date-error' : undefined}
-        />
-        {#if dateTouched && dateError !== null}
-          <span class="error" id="task-date-error">{dateError}</span>
-        {/if}
-      </label>
-
-      <fieldset class="field fieldset">
-        <legend class="field-label">Приоритет</legend>
-        <div class="priorities">
-          {#each PRIORITY_ORDER as value (value)}
-            <label class="chip" class:chip--active={priority === value}>
-              <input
-                class="radio"
-                type="radio"
-                name="task-priority"
-                value={value}
-                bind:group={priority}
-              />
-              <span class="dot" style="background: {PRIORITY_COLOR[value]}"></span>
-              <span>{PRIORITY_LABELS[value]}</span>
-            </label>
-          {/each}
-        </div>
-      </fieldset>
 
       <label class="field">
         <span class="field-label">Повторение</span>
@@ -288,10 +285,11 @@
     min-width: 0;
   }
 
-  .fieldset {
-    margin: 0;
-    padding: 0;
-    border: none;
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+    align-items: start;
   }
 
   .field-label {
@@ -335,48 +333,22 @@
     margin: 0;
   }
 
-  .priorities {
-    display: flex;
-    gap: var(--space-xs);
-    flex-wrap: wrap;
+  /* Цветная точка выбранного приоритета поверх левого края списка. */
+  .with-dot {
+    position: relative;
+    display: block;
   }
 
-  .chip {
-    display: inline-flex;
-    gap: var(--space-xs);
-    align-items: center;
-    padding: var(--space-xs) var(--space-sm);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface-muted);
-    color: var(--color-text);
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-
-  .chip--active {
-    border-color: var(--color-primary);
-    background: var(--color-selected);
-    font-weight: 600;
-  }
-
-  /* Кружок радиокнопки не нужен: выбранный приоритет виден по подсветке чипа,
-     но сам input остаётся в разметке — с ним работают клавиатура и озвучка. */
-  .radio {
+  .with-dot .dot {
     position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+    top: 50%;
+    left: var(--space-sm);
+    transform: translateY(-50%);
+    pointer-events: none;
   }
 
-  .chip:has(.radio:focus-visible) {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 1px;
+  .input--dot {
+    padding-left: calc(var(--space-sm) + 10px + var(--space-xs));
   }
 
   .dot {
