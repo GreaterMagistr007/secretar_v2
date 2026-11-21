@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
    * Экран «Настройки»: кнопка «Выбор темы» ведёт на экран выбора темы (требование Т-19),
-   * под ней кнопка «Уведомления» — на экран уведомлений (требование Т-30).
+   * под ней кнопка «Уведомления» — на экран уведомлений (требование Т-30), под ней «Голос» —
+   * на экран выбора и докачки модели для голосового управления (решение Р-36).
    */
   import { router } from '../lib/router.svelte';
 </script>
@@ -11,6 +12,7 @@
 
   <a class="button" href={router.href('/settings/theme')}>Выбор темы</a>
   <a class="button" href={router.href('/settings/notifications')}>Уведомления</a>
+  <a class="button" href={router.href('/settings/voice')}>Голос</a>
 </section>
 
 <style>

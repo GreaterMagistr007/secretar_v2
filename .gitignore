@@ -33,3 +33,8 @@ node_modules/.vite-temp/
 
 # Артефакты vite-plugin-pwa (генерируются в dist/)
 dev-dist/
+
+# Файлы моделей для голоса (2,6 ГБ, раздаются с компьютера — docs/mechanic_voice.md).
+# Сам каталог в git — через .gitkeep: иначе docker создал бы его от root, и model-download не смог бы писать.
+models/*
+!models/.gitkeep

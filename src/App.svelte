@@ -11,6 +11,7 @@
   import NotificationsScreen from './routes/NotificationsScreen.svelte';
   import SettingsScreen from './routes/SettingsScreen.svelte';
   import TaskScreen from './routes/TaskScreen.svelte';
+  import VoiceScreen from './routes/VoiceScreen.svelte';
   import ThemePickerScreen from './routes/ThemePickerScreen.svelte';
   import { router, startRouter } from './lib/router.svelte';
   import { startTaskNotifier } from './lib/task-notifier';
@@ -51,6 +52,8 @@
       <ThemePickerScreen {currentThemeId} onSelect={selectTheme} />
     {:else if router.current === '/settings/notifications'}
       <NotificationsScreen />
+    {:else if router.current === '/settings/voice'}
+      <VoiceScreen />
     {:else if router.current === '/task'}
       <TaskScreen id={router.taskId} />
     {:else}

@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- usesCleartextTraffic: модель для голоса докачивается по HTTP с компьютера в локальной сети
+         (решение Р-36), адрес вводит пользователь. С targetSdk 28+ HTTP без шифрования запрещён,
+         и DownloadManager соблюдает политику запросившего приложения. network_security_config
+         не сужает разрешение: domain-config принимает только имена и отдельные адреса, а не
+         диапазоны локальной сети, — разрешить пришлось бы так же на все адреса (docs/mechanic_android.md). -->
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

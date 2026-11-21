@@ -11,7 +11,8 @@ export type StaticRoute =
   | '/calendar'
   | '/settings'
   | '/settings/theme'
-  | '/settings/notifications';
+  | '/settings/notifications'
+  | '/settings/voice';
 
 /** Известные маршруты приложения; у '/task' есть параметр — идентификатор задачи. */
 export type Route = StaticRoute | '/task';
@@ -21,6 +22,7 @@ const STATIC_ROUTES: readonly StaticRoute[] = [
   '/settings',
   '/settings/theme',
   '/settings/notifications',
+  '/settings/voice',
 ];
 
 /** Начало пути экрана задачи (требование Т-28): #/task/<id>. */

@@ -80,5 +80,57 @@ services:
       sh -c "./gradlew --no-daemon test assembleRelease
       && cp app/build/outputs/apk/release/app-release.apk /app/secretar.apk"
 
+  # Модель для голоса (решение Р-36, docs/mechanic_voice.md): файл Gemma 4 E2B, который приложение
+  # докачивает в «Настройки → Голос» с компьютера в локальной сети.
+  # Скачать с Hugging Face по закреплённой ревизии с проверкой SHA-256 в ./models
+  # (файл с верной суммой повторно не качается, оборванная загрузка продолжается с места обрыва):
+  #   env UID=$(id -u) GID=$(id -g) docker compose run --rm model-download
+  # Раздать ./models по HTTP в локальной сети (только чтение, порт 8088, другой — MODEL_PORT=...);
+  # перед стартом сам проверит файл через model-download и при необходимости скачает:
+  #   env UID=$(id -u) GID=$(id -g) docker compose up -d model-server
+  # Остановить раздачу: docker compose stop model-server
+  model-download:
+    image: alpine:3.22
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /models
+    environment:
+      MODEL_REPO: litert-community/gemma-4-E2B-it-litert-lm
+      # Ревизия — commit hash репозитория (поле sha в API Hugging Face), сумма — lfs.oid файла на ней.
+      MODEL_REVISION: 2e12bfd869b2962984f97a1f2a26807316d534cc
+      MODEL_FILE: gemma-4-E2B-it.litertlm
+      MODEL_SHA256: 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c
+      MODEL_SIZE: "2588147712"
+    volumes:
+      - ./models:/models
+    command:
+      - sh
+      - -c
+      - |
+        if [ -f "$$MODEL_FILE" ] && echo "$$MODEL_SHA256  $$MODEL_FILE" | sha256sum -c -s; then
+          echo "$$MODEL_FILE уже скачан, SHA-256 верна"
+          exit 0
+        fi
+        # Оборванная загрузка (.part короче файла) остаётся для продолжения. Полный .part с неверной
+        # суммой wget -c не перекачивает (сервер отвечает 416) — его удаляет проверка суммы ниже.
+        if ! wget -c -O "$$MODEL_FILE.part" "https://huggingface.co/$$MODEL_REPO/resolve/$$MODEL_REVISION/$$MODEL_FILE" &&
+          [ "$$(stat -c %s "$$MODEL_FILE.part" 2>/dev/null || echo 0)" -lt "$$MODEL_SIZE" ]; then
+          exit 1
+        fi
+        if ! echo "$$MODEL_SHA256  $$MODEL_FILE.part" | sha256sum -c; then
+          rm -f "$$MODEL_FILE.part"
+          exit 1
+        fi
+        mv "$$MODEL_FILE.part" "$$MODEL_FILE"
+
+  model-server:
+    image: nginx:1.30.6-alpine
+    depends_on:
+      model-download:
+        condition: service_completed_successfully
+    ports:
+      - "${MODEL_PORT:-8088}:80"
+    volumes:
+      - ./models:/usr/share/nginx/html:ro
+
 volumes:
   gradle-cache:

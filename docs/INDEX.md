@@ -45,7 +45,7 @@ type: project
 - [tech_stack.md](tech_stack.md) — технологический стек: Vite + Svelte 5 + TypeScript, версии и обоснование (решение Р-14).
 
 ## Инфраструктура
-- [deployment.md](deployment.md) — сборка в контейнере, локальный запуск, публикация на GitHub Pages и разовая настройка репозитория, сборка APK.
+- [deployment.md](deployment.md) — сборка в контейнере, локальный запуск, публикация на GitHub Pages и разовая настройка репозитория, сборка APK, раздача модели для голоса в локальной сети.
 
 ## Механики реализации
 - [mechanic_pwa_shell.md](mechanic_pwa_shell.md) — оболочка PWA: каркас Vite + Svelte, главный экран, манифест, service worker, иконки, окружение сборки, workflow публикации.
@@ -54,6 +54,7 @@ type: project
 - [mechanic_android.md](mechanic_android.md) — Android-приложение: упаковка через Capacitor, режим сборки `capacitor`, сборка APK в контейнере, подпись постоянным ключом, версия.
 - [mechanic_notifications.md](mechanic_notifications.md) — постоянное уведомление о незавершённых задачах дня: расчёт на 60 дней, мост TaskNotifier, нативная часть на Java, экран «Настройки → Уведомления».
 - [mechanic_toast.md](mechanic_toast.md) — всплывающее сообщение: типы `success` и `error`, тайминг показа и затухания (Р-35), замена, место над нижним рядом кнопок, доступность, вызов `showToast`.
+- [mechanic_voice.md](mechanic_voice.md) — голос (пока только модель): каталог моделей, докачка Gemma 4 E2B из локальной сети системным DownloadManager, раздача файла с компьютера в docker, экран «Настройки → Голос» (Р-36).
 Новые механики заводятся файлом `mechanic_<name>.md` и вносятся в этот список.
 
 ## Справочное

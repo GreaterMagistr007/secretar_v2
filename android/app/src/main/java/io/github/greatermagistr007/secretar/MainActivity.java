@@ -7,9 +7,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Локальный плагин регистрируется до создания моста: Capacitor находит в
-        // node_modules только плагины-пакеты, а этот живёт в коде приложения.
+        // Локальные плагины регистрируются до создания моста: Capacitor находит в
+        // node_modules только плагины-пакеты, а эти живут в коде приложения.
         registerPlugin(TaskNotifierPlugin.class);
+        registerPlugin(ModelDownloaderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

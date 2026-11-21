@@ -32,6 +32,8 @@ export default defineConfig({
         'src/lib/notification-counts.ts',
         'src/lib/task-notifier.ts',
         'src/lib/toast.ts',
+        'src/lib/voice-models.ts',
+        'src/lib/model-downloader.ts',
       ],
       // types.ts — только контракт; dexie-repository.ts и repository.ts — слой
       // доступа к базе, он покрывается не тестами, а проверкой в приложении.
