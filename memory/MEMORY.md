@@ -77,3 +77,5 @@ type: project
 - [progress_voice_speedup.md](progress_voice_speedup.md), [findings_skeptic_voice_speedup.md](findings_skeptic_voice_speedup.md) — ускорение APK 8 (промпт один раз + clone, MTP, окно 2048, выбор GPU/CPU, несколько задач, ночное «сегодня»): журнал реализации, ревью У-1…У-11.
 - [findings_voice_phone_log_3.md](findings_voice_phone_log_3.md) — журнал №3 (APK 8): GPU ответ 7,8–9,1 с, «Готово» 2 с, CPU медленнее, загрузка GPU+MTP 58 с; утечка времени нажатия в задачу.
 - [progress_voice_chrono_priority.md](progress_voice_chrono_priority.md) — приоритет chrono-node на «сегодня/завтра/послезавтра» (Р-39), APK 10.
+- [findings_voice_phone_log_4.md](findings_voice_phone_log_4.md) — журнал №4 (APK 10): время теряется из-за распознавания «в семь» как «всем»; GPU ответ 5,5 с, CPU 5,6–7,5 с.
+- [findings_voice_time_hearing.md](findings_voice_time_hearing.md) — опыт с 10 формулировками промпта против потери короткого времени: ни одна без регрессий; «в семь» слышится «всем», «обед в три» обрезан отпусканием кнопки.
