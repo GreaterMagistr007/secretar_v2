@@ -24,10 +24,9 @@
     MAX_RECORD_MS,
     MIN_PEAK,
     MIN_PRESS_MS,
-    TOOL_RESPONSE,
+    USER_TEXT,
     VOICE_MESSAGES,
     buildBasePrompt,
-    buildPressMessage,
     formatTimestamp,
     interpretReply,
     nextPromptDayChange,
@@ -253,9 +252,8 @@
       const request = {
         audioPath: audio.path,
         systemPrompt: base.systemPrompt,
-        userText: buildPressMessage(pressedAt),
+        userText: USER_TEXT,
         tool: base.tool,
-        toolResponse: TOOL_RESPONSE,
       };
 
       entry.request = { ...request, tool: ADD_TASK_TOOL, baseKey: promptDayKey(pressedAt) };
@@ -267,25 +265,17 @@
 
       const result = interpretReply(reply.messages, pressedAt);
 
-      entry.rejected = result.rejected;
-
       if (!result.ok) {
+        entry.rawArgs = result.rawArgs;
         throw new VoiceError(result.error);
       }
 
-      entry.accepted = result.accepted.map(({ args, chrono }) => ({ args, chrono }));
+      entry.args = result.args;
+      entry.chrono = result.chrono;
       step('interpretMs');
 
-      // Задачи из одной фразы — по очереди, тем же путём, что из формы; в журнал — сохранённые.
-      const saved: NewTask[] = [];
-
-      entry.tasks = saved;
-
-      for (const { task } of result.accepted) {
-        await onCreate(task);
-        saved.push(task);
-      }
-
+      await onCreate(result.task);
+      entry.task = result.task;
       step('saveMs');
 
       entry.toast = { type: 'success', text: result.toast };

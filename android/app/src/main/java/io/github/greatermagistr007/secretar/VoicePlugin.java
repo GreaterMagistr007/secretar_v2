@@ -103,23 +103,15 @@ public class VoicePlugin extends Plugin {
     private static final int MAX_RECORD_BYTES = 30 * WavFile.SAMPLE_RATE * WavFile.BYTES_PER_SAMPLE;
 
     /**
-     * Окно контекста (размер KV-кэша): промпт с описанием инструмента — около 1000 токенов, 30 с
-     * звука — 750 (25 ток/с), сообщение нажатия с разметкой — около 30, ответ — до 128: около 1910.
-     * Модель компилируется под это число: 2048 вместо 4096 ускоряет и чтение, и генерацию.
+     * Окно контекста (размер KV-кэша): базовый промпт с описанием инструмента — 1051–1053 токена днём
+     * и 1118 ночью (эмулятор), 30 с звука — 750 (25 ток/с), сообщение нажатия с разметкой — около 20,
+     * ответ — до 128: ночью около 2016, запас около 30 токенов. Модель компилируется под это число:
+     * 2048 вместо 4096 ускоряет и чтение, и генерацию.
      */
     private static final int MAX_NUM_TOKENS = 2048;
 
-    /**
-     * Предел ответа на один ход: ход — один вызов инструмента (42–65 токенов на записях владельца)
-     * или «Готово»; задачи фразы идут отдельными ходами, поэтому предел на ход не растёт.
-     */
+    /** Ответ — один вызов инструмента: несколько десятков токенов. */
     private static final int MAX_OUTPUT_TOKENS = 128;
-
-    /**
-     * Сколько раз отдать модели ответ инструмента за нажатие: до 5 задач из одной фразы. Предел —
-     * от зацикливания: модель может вызывать инструмент снова и снова.
-     */
-    private static final int MAX_TOOL_ROUNDS = 4;
 
     /**
      * Токенов ответа на прогреве: несколько, а не один — чтобы драфтер MTP отработал хотя бы шаг
@@ -421,13 +413,11 @@ public class VoicePlugin extends Plugin {
     }
 
     /**
-     * Отдаёт запись модели: {@code { audioPath, systemPrompt, userText, tool, toolResponse }}:
-     * systemPrompt — базовый промпт дня, userText — сообщение нажатия (время), tool — описание
-     * инструмента JSON-строкой, toolResponse — ответ инструмента на каждый вызов. Разговор — копия
-     * базового; база другого дня перечитывается перед нажатием. Инструмент — в ручном режиме
-     * (automaticToolCalling = false): вызовы возвращаются как есть, а чтобы модель вызвала его
-     * для следующей задачи фразы, ей отдаётся toolResponse — пока она вызывает инструмент, но не
-     * больше {@code MAX_TOOL_ROUNDS} ходов.
+     * Отдаёт запись модели: {@code { audioPath, systemPrompt, userText, tool }}: systemPrompt —
+     * базовый промпт дня, userText — сообщение нажатия, tool — описание инструмента JSON-строкой.
+     * Разговор — копия базового; база другого текста — новый разговор с промптом нажатия.
+     * Инструмент — в ручном режиме (automaticToolCalling = false): вызов возвращается как есть,
+     * модель после него не догенерирует.
      */
     @PluginMethod
     public void process(PluginCall call) {
@@ -435,9 +425,8 @@ public class VoicePlugin extends Plugin {
         String systemPrompt = call.getString("systemPrompt");
         String userText = call.getString("userText", "");
         String tool = call.getString("tool");
-        String toolResponse = call.getString("toolResponse");
 
-        if (audioPath == null || systemPrompt == null || tool == null || toolResponse == null) {
+        if (audioPath == null || systemPrompt == null || tool == null) {
             call.reject("Неверные параметры обработки");
 
             return;
@@ -445,7 +434,7 @@ public class VoicePlugin extends Plugin {
 
         long queuedAt = SystemClock.elapsedRealtime();
 
-        ENGINE_THREAD.execute(() -> runModel(call, queuedAt, audioPath, systemPrompt, userText, tool, toolResponse));
+        ENGINE_THREAD.execute(() -> runModel(call, queuedAt, audioPath, systemPrompt, userText, tool));
     }
 
     /** Добавляет строку {@code { line }} в журнал и убирает записи и WAV старше 30 нажатий. */
@@ -640,7 +629,7 @@ public class VoicePlugin extends Plugin {
     }
 
     private static void runModel(PluginCall call, long queuedAt, String audioPath, String systemPrompt,
-            String userText, String toolJson, String toolResponse) {
+            String userText, String toolJson) {
         long startedAt = SystemClock.elapsedRealtime();
         Engine current;
         String backend;
@@ -648,7 +637,9 @@ public class VoicePlugin extends Plugin {
         String mtp;
 
         synchronized (ENGINE_LOCK) {
-            current = READY.equals(engineState) ? engine : null;
+            // LOADING с живым движком — сменили устройство, пока нажатие ждало в очереди: прежний движок
+            // закроет только загрузка, стоящая в очереди после нажатия, поэтому нажатие доделывается на нём.
+            current = READY.equals(engineState) || LOADING.equals(engineState) ? engine : null;
             backend = engineBackend;
             device = engineDevice;
             mtp = engineMtp;
@@ -660,10 +651,6 @@ public class VoicePlugin extends Plugin {
 
                 return;
             }
-
-            // Нажатие решает, какая база нужна: его текст — последний.
-            wantedBasePrompt = systemPrompt;
-            wantedBaseTool = toolJson;
         }
 
         // Замеры и сведения о разговоре — вне try: при ошибке модели собранное уходит в журнал.
@@ -679,14 +666,14 @@ public class VoicePlugin extends Plugin {
                 contents.add(new Content.Text(userText));
             }
 
-            // База другого дня (таймер в фоне не успел) — перечитать сейчас; время входит в conversationMs.
-            prepared.put("baseRebuilt", ensureBase("перед нажатием"));
-
             Conversation ready;
             JSObject info;
 
             synchronized (ENGINE_LOCK) {
-                ready = base;
+                // База не того текста (нажатие на границе дня, а прочитана уже база нового дня или ещё
+                // старого) — не перечитывать её под нажатие: новый разговор с промптом нажатия, одно
+                // чтение, как до базы; базу перечитывает load(), вызванный в начале нажатия.
+                ready = systemPrompt.equals(basePrompt) && toolJson.equals(baseTool) ? base : null;
                 info = baseInfo;
             }
 
@@ -711,15 +698,13 @@ public class VoicePlugin extends Plugin {
             if (conversation == null) {
                 conversation = current.createConversation(conversationConfig(systemPrompt, toolJson));
                 prepared.put("mode", "fresh");
+                prepared.put("freshReason", prepared.has("cloneError") ? "копия не удалась"
+                        : info == null || info.has("error") ? "база не прочитана" : "база другого текста");
             }
 
             Message reply;
             long createdAt;
             long doneAt;
-            long roundsMs = 0;
-            int calls;
-            JSArray messages = new JSArray();
-            JSArray rounds = new JSArray();
 
             try (Conversation turn = conversation) {
                 createdAt = SystemClock.elapsedRealtime();
@@ -732,63 +717,25 @@ public class VoicePlugin extends Plugin {
                 reply = turn.sendMessage(Contents.Companion.of(contents));
                 doneAt = SystemClock.elapsedRealtime();
                 timing.put("turn", benchmarkJson(turn));
-                messages.put(messageJson(reply));
-                calls = reply.getToolCalls().size();
-
-                // Gemma 4 после вызова ждёт ответа инструмента: на ответ она вызывает инструмент для
-                // следующей задачи фразы или отвечает текстом. Отказ хода (например, переполнение
-                // окна на длинной записи) не теряет уже полученные вызовы.
-                Message last = reply;
-
-                while (!last.getToolCalls().isEmpty() && rounds.length() < MAX_TOOL_ROUNDS) {
-                    List<Content> responses = new ArrayList<>();
-
-                    for (ToolCall toolCall : last.getToolCalls()) {
-                        responses.add(new Content.ToolResponse(toolCall.getName(), toolResponse));
-                    }
-
-                    long roundStart = SystemClock.elapsedRealtime();
-                    JSObject round = new JSObject();
-
-                    rounds.put(round);
-
-                    try {
-                        last = turn.sendMessage(Message.Companion.tool(Contents.Companion.of(responses)));
-                    } catch (Throwable error) {
-                        Log.w(TAG, "ход с ответом инструмента не удался", error);
-                        round.put("ms", SystemClock.elapsedRealtime() - roundStart);
-                        round.put("error", Log.getStackTraceString(error));
-                        roundsMs += SystemClock.elapsedRealtime() - roundStart;
-
-                        break;
-                    }
-
-                    round.put("ms", SystemClock.elapsedRealtime() - roundStart);
-                    round.put("bench", benchmarkJson(turn));
-                    roundsMs += SystemClock.elapsedRealtime() - roundStart;
-                    messages.put(messageJson(last));
-                    calls += last.getToolCalls().size();
-                }
             }
 
-            timing.put("rounds", rounds);
-            timing.put("toolRoundsMs", roundsMs);
-            summarizeTiming(timing, createdAt - startedAt, doneAt - createdAt, roundsMs);
+            summarizeTiming(timing, createdAt - startedAt, doneAt - createdAt);
 
             JSObject result = new JSObject();
+            JSArray messages = new JSArray();
 
+            messages.put(messageJson(reply));
             result.put("messages", messages);
             result.put("backend", backend);
             result.put("waitMs", startedAt - queuedAt);
             result.put("conversationMs", createdAt - startedAt);
             result.put("inferenceMs", doneAt - createdAt);
-            result.put("toolRoundsMs", roundsMs);
             result.put("conversation", prepared);
             result.put("config", modelConfigJson(backend, device, mtp));
             result.put("timing", timing);
-            Log.i(TAG, "ответ модели за " + (doneAt - createdAt) + " + " + roundsMs + " мс (" + backend + ", MTP "
-                    + mtp + ", " + prepared.optString("mode") + "), ходов: " + (1 + rounds.length()) + ", вызовов: "
-                    + calls + ", замеры: " + timing);
+            Log.i(TAG, "ответ модели за " + (doneAt - createdAt) + " мс (" + backend + ", MTP " + mtp + ", "
+                    + prepared.optString("mode") + "), вызовов: " + reply.getToolCalls().size() + ", текст: "
+                    + textOf(reply) + ", замеры: " + timing);
             call.resolve(result);
         } catch (Throwable error) {
             Log.e(TAG, "ошибка модели", error);
@@ -845,10 +792,10 @@ public class VoicePlugin extends Plugin {
 
     /**
      * Читает нужный базовый промпт в новый базовый разговор, если прочитан другой или никакой
-     * (только в фоновом потоке). Возвращает, была ли попытка чтения. Ошибка не бросается:
-     * базы нет, причина — в {@code baseInfo.error}, нажатие создаст разговор само.
+     * (только в фоновом потоке). Ошибка не бросается: базы нет, причина — в {@code baseInfo.error},
+     * нажатие создаст разговор само.
      */
-    private static boolean ensureBase(String reason) {
+    private static void ensureBase(String reason) {
         Engine current;
         String prompt;
         String tool;
@@ -859,7 +806,7 @@ public class VoicePlugin extends Plugin {
             tool = wantedBaseTool;
 
             if (current == null || baseIsWanted()) {
-                return false;
+                return;
             }
         }
 
@@ -892,11 +839,13 @@ public class VoicePlugin extends Plugin {
             info.put("error", Log.getStackTraceString(error));
 
             synchronized (ENGINE_LOCK) {
+                // Попытка для этого текста была: не повторять её на каждом нажатии и проверке модели —
+                // только при смене текста или перезагрузке (closeBase сбрасывает текст).
+                basePrompt = prompt;
+                baseTool = tool;
                 baseInfo = info;
             }
         }
-
-        return true;
     }
 
     /** Закрывает базовый разговор (в фоновом потоке, до закрытия движка). */
@@ -1087,6 +1036,9 @@ public class VoicePlugin extends Plugin {
             entry.put("loadMs", loadMs);
             entry.put("warmUpMs", warmUpMs);
             entry.put("stages", stages);
+            // Принята ли загрузка: при смене устройства или удалении модели во время загрузки её
+            // результат отбрасывается, и рабочей становится следующая запись.
+            entry.put("accepted", accepted);
 
             for (String key : new String[] { "gpuMtpError", "gpuError", "cpuMtpError", "cpuError" }) {
                 entry.put(key, errors.has(key) ? errors.get(key) : JSONObject.NULL);
@@ -1177,7 +1129,7 @@ public class VoicePlugin extends Plugin {
     }
 
     /** Сводка по замерам хода (арифметика — {@link ModelTiming}); нет замера хода — сводки нет. */
-    private static void summarizeTiming(JSObject timing, long conversationMs, long inferenceMs, long roundsMs) {
+    private static void summarizeTiming(JSObject timing, long conversationMs, long inferenceMs) {
         JSONObject turn = timing.optJSONObject("turn");
 
         if (turn == null || turn.has("error")) {
@@ -1191,8 +1143,7 @@ public class VoicePlugin extends Plugin {
                 marks == null ? 0 : marks.optLong("audio_executor", 0),
                 turn.optLong("prefillMs", 0),
                 turn.optLong("decodeMs", 0),
-                turn.optInt("decodeTokens", 0),
-                roundsMs);
+                turn.optInt("decodeTokens", 0));
 
         timing.put("audioEncodeMs", summary.audioEncodeMs);
         timing.put("turnPrefillMs", summary.turnPrefillMs);

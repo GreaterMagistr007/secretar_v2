@@ -175,7 +175,7 @@ describe('мост', () => {
 
   it('runModel отдаёт и сырой, и разобранный ответ', async () => {
     const raw = { messages: [], backend: 'GPU' };
-    const request = { audioPath: '/a.wav', systemPrompt: 'p', userText: 'u', tool: '{}', toolResponse: 'r' };
+    const request = { audioPath: '/a.wav', systemPrompt: 'p', userText: 'u', tool: '{}' };
 
     mocks.process.mockResolvedValue(raw);
 

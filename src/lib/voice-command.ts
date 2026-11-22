@@ -79,15 +79,12 @@ export const ADD_TASK_TOOL = {
   },
 } as const;
 
-/** Постоянная часть текста, который идёт в сообщении пользователя вместе с записью. */
-export const USER_TEXT = 'Команда пользователя — в аудиозаписи.';
-
 /**
- * Ответ инструмента на каждый вызов `add_task`: получив его, модель вызывает инструмент снова
- * для следующего дня или дела либо отвечает «Готово». Задачи сохраняет веб-часть после разбора,
- * ответ лишь продолжает разговор — несколько вызовов в одном ответе Gemma 4 не делает.
+ * Текст, который идёт в сообщении пользователя вместе с записью. Времени нажатия в нём нет: ни одно
+ * правило промпта от времени суток не зависит, а время рядом с фразой модель брала в `time`
+ * (ревью У-2).
  */
-export const TOOL_RESPONSE = 'Задача добавлена';
+export const USER_TEXT = 'Команда пользователя — в аудиозаписи.';
 
 /**
  * Час, до которого ночь ещё относится к прошлому дню (решение Р-38): в 01:58 22 ноября «завтра» —
@@ -158,7 +155,7 @@ export function nextPromptDayChange(now: Date): Date {
 /**
  * Базовый (постоянный в пределах дня промпта) системный промпт: дата, день недели, часовой пояс
  * телефона, календарь на две недели (снимает с модели арифметику дней) и правила разбора.
- * Времени суток в нём нет — оно идёт в сообщении нажатия (`buildPressMessage`), поэтому промпт
+ * Времени суток в нём нет (сообщение нажатия — только `USER_TEXT` и запись), поэтому промпт
  * с описанием инструмента модель читает один раз и на нажатие копирует готовый разговор.
  *
  * Ночное правило (решение Р-38): до `NIGHT_END_HOUR` календарного дня D «сегодня», «завтра» и день
@@ -199,7 +196,7 @@ export function buildBasePrompt(now: Date, timeZone: string): string {
     'Календарь на две недели вперёд:',
     ...calendar,
     '',
-    `Если в фразе есть дело, вызови инструмент ${ADD_TASK}. Один вызов — одна задача на один день; если дней или дел несколько («в понедельник и в среду бассейн»), после ответа инструмента вызови ${ADD_TASK} снова — для следующего дня или дела. Когда все задачи добавлены, ответь одним словом: Готово. Аргументы:`,
+    `Если в фразе есть дело, вызови инструмент ${ADD_TASK} один раз. Аргументы:`,
     '- heard — фраза дословно, как ты её услышал, без исправлений и пересказа.',
     '- date — день задачи в формате ГГГГ-ММ-ДД:',
     `  - день не назван — сегодня, ${today};`,
@@ -216,10 +213,6 @@ export function buildBasePrompt(now: Date, timeZone: string): string {
   ].join('\n');
 }
 
-/** Текст сообщения нажатия к записи: время нажатия ЧЧ:ММ и `USER_TEXT`. */
-export function buildPressMessage(now: Date): string {
-  return `Сейчас ${clock(now)}. ${USER_TEXT}`;
-}
 
 /** Аргументы вызова `add_task` после проверки. */
 export interface AddTaskArgs {
@@ -314,21 +307,6 @@ export function successMessage(text: string, date: string, today: string): strin
   return `Добавлено: ${text} — ${formatWeekdayDate(date, today)}`;
 }
 
-/**
- * Сообщение о задачах из одной фразы. Одна — как `successMessage`; несколько с одинаковым
- * текстом — текст один раз и дни через «; »: «Добавлено: Бассейн — пн, 23 ноября; ср, 25 ноября»;
- * с разным — «текст — день» через «; ». Отклонённые вызовы — в конце: «, не понял: 1».
- */
-export function addedMessage(tasks: readonly Pick<NewTask, 'text' | 'date'>[], today: string, rejected: number): string {
-  const day = (date: string): string => formatWeekdayDate(date, today);
-  const sameText = tasks.every((task) => task.text === tasks[0].text);
-  const list = sameText
-    ? `${tasks[0].text} — ${tasks.map((task) => day(task.date)).join('; ')}`
-    : tasks.map((task) => `${task.text} — ${day(task.date)}`).join('; ');
-
-  return `Добавлено: ${list}${rejected > 0 ? `, не понял: ${rejected}` : ''}`;
-}
-
 /** Итог сверки даты модели с `chrono-node`. */
 export interface ChronoCheck {
   /** Нашёл ли `chrono-node` в фразе день (число, день недели, «завтра»). */
@@ -398,33 +376,20 @@ export interface ModelMessage {
   channels: Record<string, unknown>;
 }
 
-/** Вызов `add_task`, прошедший проверку: задача и сверка её даты. */
-export interface AcceptedCall {
-  args: AddTaskArgs;
-  chrono: ChronoCheck;
-  task: NewTask;
-}
-
-/** Вызов `add_task`, не прошедший проверку: сырые аргументы и причина. */
-export interface RejectedCall {
-  rawArgs: unknown;
-  error: string;
-}
-
 /** Итог разбора ответа модели. */
 export type ReplyResult =
   | {
       ok: true;
-      /** Задачи по порядку вызовов — все сохраняются. */
-      accepted: AcceptedCall[];
-      rejected: RejectedCall[];
+      args: AddTaskArgs;
+      chrono: ChronoCheck;
+      task: NewTask;
       toast: string;
     }
   | {
       ok: false;
       error: string;
-      /** Вызовы с неверными аргументами, если вызовы были. */
-      rejected: RejectedCall[];
+      /** Сырые аргументы вызова, если вызов был. */
+      rawArgs: unknown;
     };
 
 /** Строка для сообщения: первые символы, длинное обрезается многоточием. */
@@ -435,69 +400,49 @@ function preview(text: string): string {
 }
 
 /**
- * Разбирает ответ модели на нажатие в момент `now`: все вызовы `add_task` (из одной фразы может
- * быть несколько задач — по задаче на дело и день) → проверка аргументов каждого → сверка
- * `chrono-node` → задачи и текст сообщения. Задачи сохраняются по дате модели, расхождение
- * с `chrono-node` только отмечается — его видно в журнале. Неверные вызовы отклоняются, верные
- * сохраняются, повтор той же задачи (текст и день) пропускается; нет ни одного верного — ошибка
- * первого. Без вызова — «Не понял» с ответом модели.
+ * Разбирает ответ модели на нажатие в момент `now`: первый вызов `add_task` → проверка аргументов
+ * → сверка `chrono-node` → задача и текст сообщения. Одна фраза — одна задача (решение владельца
+ * 2026-11-22): если модель всё же вызвала инструмент несколько раз, сохраняется первый вызов,
+ * остальные остаются только в журнале (`reply.messages`). Задача сохраняется по дате модели,
+ * расхождение с `chrono-node` только отмечается — его видно в журнале. Без вызова — «Не понял»
+ * с ответом модели.
  */
 export function interpretReply(messages: ModelMessage[], now: Date): ReplyResult {
-  const calls = messages.flatMap((message) => message.toolCalls);
-  const addCalls = calls.filter((item) => item.name === ADD_TASK);
+  const call = messages.flatMap((message) => message.toolCalls).find((item) => item.name === ADD_TASK);
 
-  if (addCalls.length === 0) {
+  if (call === undefined) {
+    const others = messages.flatMap((message) => message.toolCalls).map((item) => item.name);
     const reply = preview(messages.map((message) => message.text).join(' '));
 
     if (reply !== '') {
-      return { ok: false, error: `Не понял: «${reply}»`, rejected: [] };
+      return { ok: false, error: `Не понял: «${reply}»`, rawArgs: null };
     }
 
     return {
       ok: false,
       error:
-        calls.length > 0
-          ? `Не понял: модель вызвала неизвестный инструмент ${calls.map((item) => item.name).join(', ')}`
+        others.length > 0
+          ? `Не понял: модель вызвала неизвестный инструмент ${others.join(', ')}`
           : 'Не понял: модель ничего не ответила',
-      rejected: [],
+      rawArgs: null,
     };
   }
 
-  const accepted: AcceptedCall[] = [];
-  const rejected: RejectedCall[] = [];
+  const parsed = parseAddTaskArgs(call.arguments);
 
-  for (const call of addCalls) {
-    const parsed = parseAddTaskArgs(call.arguments);
-
-    if (!parsed.ok) {
-      rejected.push({ rawArgs: call.arguments, error: parsed.error });
-      continue;
-    }
-
-    const args = parsed.value;
-    const task: NewTask = { text: taskText(args.text, args.time), date: args.date, priority: 'medium', recurrence: 'none' };
-
-    // Модель повторила ту же задачу (зациклилась на ответе инструмента) — второй раз не сохранять.
-    if (accepted.some((item) => item.task.text === task.text && item.task.date === task.date)) {
-      continue;
-    }
-
-    accepted.push({ args, chrono: checkDateWithChrono(args.heard, args.date, now), task });
+  if (!parsed.ok) {
+    return { ok: false, error: parsed.error, rawArgs: call.arguments };
   }
 
-  if (accepted.length === 0) {
-    return { ok: false, error: rejected[0].error, rejected };
-  }
+  const args = parsed.value;
+  const text = taskText(args.text, args.time);
 
   return {
     ok: true,
-    accepted,
-    rejected,
-    toast: addedMessage(
-      accepted.map((item) => item.task),
-      toIsoDate(now),
-      rejected.length,
-    ),
+    args,
+    chrono: checkDateWithChrono(args.heard, args.date, now),
+    task: { text, date: args.date, priority: 'medium', recurrence: 'none' },
+    toast: successMessage(text, args.date, toIsoDate(now)),
   };
 }
 

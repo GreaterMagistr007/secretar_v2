@@ -9,7 +9,7 @@ public class ModelTimingTest {
 
     @Test
     public void emulatorMeasurement() {
-        ModelTiming timing = ModelTiming.of(8746, 8033, 596, 943, 6480, 57, 0);
+        ModelTiming timing = ModelTiming.of(8746, 8033, 596, 943, 6480, 57);
 
         assertEquals(596, timing.audioEncodeMs);
         assertEquals(943, timing.turnPrefillMs);
@@ -22,7 +22,7 @@ public class ModelTimingTest {
 
     @Test
     public void noAudioMarkCountsAsZero() {
-        ModelTiming timing = ModelTiming.of(1000, 5000, 0, 900, 3000, 30, 0);
+        ModelTiming timing = ModelTiming.of(1000, 5000, 0, 900, 3000, 30);
 
         assertEquals(0, timing.audioEncodeMs);
         assertEquals(1000 + 900 + 100, timing.firstTokenMs);
@@ -31,7 +31,7 @@ public class ModelTimingTest {
 
     @Test
     public void noDecodeTokensNoDivision() {
-        ModelTiming timing = ModelTiming.of(1000, 2000, 300, 700, 0, 0, 0);
+        ModelTiming timing = ModelTiming.of(1000, 2000, 300, 700, 0, 0);
 
         assertEquals(1000 + 300 + 700, timing.firstTokenMs);
         assertEquals(1000, timing.otherMs);
@@ -39,7 +39,7 @@ public class ModelTimingTest {
 
     @Test
     public void noStatisticsAllZeros() {
-        ModelTiming timing = ModelTiming.of(0, 0, 0, 0, 0, 0, 0);
+        ModelTiming timing = ModelTiming.of(0, 0, 0, 0, 0, 0);
 
         assertEquals(0, timing.firstTokenMs);
         assertEquals(0, timing.otherMs);
@@ -48,7 +48,7 @@ public class ModelTimingTest {
 
     @Test
     public void negativeMeasurementsCountAsZero() {
-        ModelTiming timing = ModelTiming.of(500, 4000, -1, -1, -1, 10, 0);
+        ModelTiming timing = ModelTiming.of(500, 4000, -1, -1, -1, 10);
 
         assertEquals(0, timing.audioEncodeMs);
         assertEquals(0, timing.turnPrefillMs);
@@ -59,21 +59,7 @@ public class ModelTimingTest {
 
     @Test
     public void oneDecodeTokenIsWholeDecode() {
-        assertEquals(100 + 50 + 20 + 80, ModelTiming.of(100, 200, 50, 20, 80, 1, 0).firstTokenMs);
-    }
-
-    @Test
-    public void toolRoundsAddToTotalOnly() {
-        ModelTiming timing = ModelTiming.of(30, 3000, 300, 400, 2000, 50, 1500);
-
-        assertEquals(30 + 300 + 400 + 40, timing.firstTokenMs);
-        assertEquals(300, timing.otherMs);
-        assertEquals(30 + 3000 + 1500, timing.modelTotalMs);
-    }
-
-    @Test
-    public void negativeRoundsCountAsZero() {
-        assertEquals(1000 + 2000, ModelTiming.of(1000, 2000, 0, 0, 0, 0, -1).modelTotalMs);
+        assertEquals(100 + 50 + 20 + 80, ModelTiming.of(100, 200, 50, 20, 80, 1).firstTokenMs);
     }
 
     @Test

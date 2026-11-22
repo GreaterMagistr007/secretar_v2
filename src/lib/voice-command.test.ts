@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   ADD_TASK_TOOL,
-  addedMessage,
   buildBasePrompt,
-  buildPressMessage,
   checkDateWithChrono,
   dayReference,
   formatTimestamp,
@@ -55,10 +53,7 @@ describe('buildBasePrompt', () => {
     expect(prompt).toContain('«в 12» — 12:00');
     expect(prompt).toContain('«в 7 вечера» — 19:00');
     expect(prompt).toContain('«в понедельник маникюр в 12» → «Маникюр»');
-    expect(prompt).toContain(
-      'вызови инструмент add_task. Один вызов — одна задача на один день; если дней или дел несколько («в понедельник и в среду бассейн»), после ответа инструмента вызови add_task снова — для следующего дня или дела. Когда все задачи добавлены, ответь одним словом: Готово.',
-    );
-    expect(prompt).not.toContain('один раз');
+    expect(prompt).toContain('вызови инструмент add_task один раз');
   });
 
   it('переходит через конец месяца и года', () => {
@@ -88,18 +83,6 @@ describe('buildBasePrompt', () => {
     expect(buildBasePrompt(new Date(2026, 10, 22, 12, 0), 'Europe/Moscow')).not.toBe(
       buildBasePrompt(new Date(2026, 10, 22, 12, 0), 'UTC'),
     );
-  });
-});
-
-describe('buildPressMessage', () => {
-  it('время нажатия ЧЧ:ММ и указание на запись', () => {
-    expect(buildPressMessage(SATURDAY)).toBe('Сейчас 19:30. Команда пользователя — в аудиозаписи.');
-  });
-
-  it('полночь — 00:00, ведущие нули', () => {
-    expect(buildPressMessage(new Date(2026, 0, 1, 0, 0))).toBe('Сейчас 00:00. Команда пользователя — в аудиозаписи.');
-    expect(buildPressMessage(new Date(2026, 0, 1, 9, 5))).toBe('Сейчас 09:05. Команда пользователя — в аудиозаписи.');
-    expect(buildPressMessage(new Date(2026, 0, 1, 23, 59, 59))).toBe('Сейчас 23:59. Команда пользователя — в аудиозаписи.');
   });
 });
 
@@ -263,7 +246,8 @@ describe('ночное правило', () => {
 
     expect(result).toMatchObject({
       ok: true,
-      accepted: [{ chrono: { date: '2026-11-22', agrees: true }, task: { text: 'Позвонить маме в 4', date: '2026-11-22' } }],
+      chrono: { date: '2026-11-22', agrees: true },
+      task: { text: 'Позвонить маме в 4', date: '2026-11-22' },
       toast: 'Добавлено: Позвонить маме в 4 — вс, 22 ноября',
     });
   });
@@ -274,11 +258,7 @@ describe('ночное правило', () => {
       new Date(2027, 0, 1, 1, 0),
     );
 
-    expect(result).toMatchObject({
-      ok: true,
-      accepted: [{ chrono: { date: '2027-01-01', agrees: true } }],
-      toast: 'Добавлено: Ёлка — пт, 1 января',
-    });
+    expect(result).toMatchObject({ ok: true, chrono: { date: '2027-01-01', agrees: true }, toast: 'Добавлено: Ёлка — пт, 1 января' });
   });
 });
 
@@ -474,59 +454,8 @@ describe('checkDateWithChrono', () => {
   });
 });
 
-describe('addedMessage', () => {
-  const today = '2026-11-21';
-
-  it('одна задача — как successMessage', () => {
-    expect(addedMessage([{ text: 'Маникюр в 12', date: '2026-11-23' }], today, 0)).toBe(
-      successMessage('Маникюр в 12', '2026-11-23', today),
-    );
-  });
-
-  it('одинаковый текст — текст один раз, дни через «; »', () => {
-    expect(
-      addedMessage(
-        [
-          { text: 'Заехать в берёзовый', date: '2026-11-24' },
-          { text: 'Заехать в берёзовый', date: '2026-11-25' },
-        ],
-        today,
-        0,
-      ),
-    ).toBe('Добавлено: Заехать в берёзовый — вт, 24 ноября; ср, 25 ноября');
-  });
-
-  it('разный текст — «текст — день» через «; », три задачи, год у будущего года', () => {
-    expect(
-      addedMessage(
-        [
-          { text: 'Маникюр в 12', date: '2026-11-23' },
-          { text: 'Хлеб', date: '2026-11-21' },
-          { text: 'Ёлка', date: '2027-01-01' },
-        ],
-        today,
-        0,
-      ),
-    ).toBe('Добавлено: Маникюр в 12 — пн, 23 ноября; Хлеб — сб, 21 ноября; Ёлка — пт, 1 января 2027');
-  });
-
-  it('отклонённые вызовы — в конце «, не понял: N»', () => {
-    expect(addedMessage([{ text: 'Хлеб', date: '2026-11-22' }], today, 1)).toBe('Добавлено: Хлеб — вс, 22 ноября, не понял: 1');
-    expect(
-      addedMessage(
-        [
-          { text: 'Хлеб', date: '2026-11-22' },
-          { text: 'Хлеб', date: '2026-11-23' },
-        ],
-        today,
-        2,
-      ),
-    ).toBe('Добавлено: Хлеб — вс, 22 ноября; пн, 23 ноября, не понял: 2');
-  });
-});
-
 describe('interpretReply', () => {
-  it('один вызов add_task → задача, сверка и сообщение', () => {
+  it('вызов add_task → задача, сверка и сообщение', () => {
     const result = interpretReply(
       reply([
         {
@@ -539,14 +468,9 @@ describe('interpretReply', () => {
 
     expect(result).toEqual({
       ok: true,
-      accepted: [
-        {
-          args: { heard: 'в понедельник маникюр в 12', date: '2026-11-23', time: '12:00', text: 'Маникюр' },
-          chrono: { found: true, matched: 'в понедельник', date: '2026-11-23', agrees: true },
-          task: { text: 'Маникюр в 12', date: '2026-11-23', priority: 'medium', recurrence: 'none' },
-        },
-      ],
-      rejected: [],
+      args: { heard: 'в понедельник маникюр в 12', date: '2026-11-23', time: '12:00', text: 'Маникюр' },
+      chrono: { found: true, matched: 'в понедельник', date: '2026-11-23', agrees: true },
+      task: { text: 'Маникюр в 12', date: '2026-11-23', priority: 'medium', recurrence: 'none' },
       toast: 'Добавлено: Маникюр в 12 — пн, 23 ноября',
     });
   });
@@ -557,51 +481,10 @@ describe('interpretReply', () => {
       SATURDAY,
     );
 
-    expect(result).toMatchObject({
-      ok: true,
-      accepted: [{ chrono: { agrees: false }, task: { date: '2026-11-21', text: 'Хлеб' } }],
-    });
+    expect(result).toMatchObject({ ok: true, chrono: { agrees: false }, task: { date: '2026-11-21', text: 'Хлеб' } });
   });
 
-  it('два вызова с одинаковым текстом — две задачи, сверка по каждому, дни в одном сообщении', () => {
-    const heard = 'во вторник и в среду надо заехать в берёзовый';
-    const result = interpretReply(
-      reply([
-        { name: 'add_task', arguments: { heard, date: '2026-11-24', text: 'Заехать в берёзовый' } },
-        { name: 'add_task', arguments: { heard, date: '2026-11-25', text: 'Заехать в берёзовый' } },
-      ]),
-      new Date(2026, 10, 22, 14, 4),
-    );
-
-    expect(result).toMatchObject({
-      ok: true,
-      accepted: [
-        { task: { text: 'Заехать в берёзовый', date: '2026-11-24' }, chrono: { date: '2026-11-24', agrees: true } },
-        // chrono-node берёт из фразы первый день — сверка второго вызова расходится и только пишется в журнал.
-        { task: { text: 'Заехать в берёзовый', date: '2026-11-25' }, chrono: { date: '2026-11-24', agrees: false } },
-      ],
-      rejected: [],
-      toast: 'Добавлено: Заехать в берёзовый — вт, 24 ноября; ср, 25 ноября',
-    });
-  });
-
-  it('три вызова с разным текстом — все задачи по порядку, сообщение перечислением', () => {
-    const result = interpretReply(
-      reply([
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-22', text: 'Хлеб' } },
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-23', time: '12:00', text: 'Маникюр' } },
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-24', text: 'Бассейн' } },
-      ]),
-      SATURDAY,
-    );
-
-    expect(result.ok && result.accepted.map((item) => item.task.text)).toEqual(['Хлеб', 'Маникюр в 12', 'Бассейн']);
-    expect(result).toMatchObject({
-      toast: 'Добавлено: Хлеб — вс, 22 ноября; Маникюр в 12 — пн, 23 ноября; Бассейн — вт, 24 ноября',
-    });
-  });
-
-  it('вызовы из разных сообщений собираются, чужой инструмент пропускается', () => {
+  it('несколько вызовов — сохраняется первый add_task среди всех сообщений (одна фраза — одна задача)', () => {
     const messages: ModelMessage[] = [
       { role: 'assistant', text: '', toolCalls: [{ name: 'other', arguments: {} }], channels: {} },
       ...reply([
@@ -609,58 +492,21 @@ describe('interpretReply', () => {
         { name: 'add_task', arguments: { heard: '', date: '2026-11-23', text: 'Вторая' } },
       ]),
     ];
-    const result = interpretReply(messages, SATURDAY);
 
-    expect(result.ok && result.accepted.map((item) => item.task.text)).toEqual(['Первая', 'Вторая']);
-  });
-
-  it('повтор той же задачи (текст и день) пропускается, тот же текст на другой день — нет', () => {
-    const result = interpretReply(
-      reply([
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-23', text: 'Хлеб' } },
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-23', text: 'хлеб.' } },
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-24', text: 'Хлеб' } },
-      ]),
-      SATURDAY,
-    );
-
-    expect(result).toMatchObject({ ok: true, rejected: [], toast: 'Добавлено: Хлеб — пн, 23 ноября; вт, 24 ноября' });
-    expect(result.ok && result.accepted.length).toBe(2);
-  });
-
-  it('часть вызовов неверна — верные сохраняются, неверные в rejected, «не понял: N» в сообщении', () => {
-    const bad = { heard: 'х', date: 'завтра', text: 'Хлеб' };
-    const result = interpretReply(
-      reply([
-        { name: 'add_task', arguments: bad },
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-23', text: 'Молоко' } },
-        { name: 'add_task', arguments: { heard: 'х', date: '2026-11-24', text: '' } },
-      ]),
-      SATURDAY,
-    );
-
-    expect(result).toEqual({
-      ok: true,
-      accepted: [expect.objectContaining({ task: expect.objectContaining({ text: 'Молоко', date: '2026-11-23' }) })],
-      rejected: [
-        { rawArgs: bad, error: 'Модель вернула неверную дату: «завтра»' },
-        { rawArgs: { heard: 'х', date: '2026-11-24', text: '' }, error: 'Модель вернула пустой текст задачи' },
-      ],
-      toast: 'Добавлено: Молоко — пн, 23 ноября, не понял: 2',
-    });
+    expect(interpretReply(messages, SATURDAY)).toMatchObject({ ok: true, task: { text: 'Первая' } });
   });
 
   it('нет вызова — «Не понял» с ответом модели, длинный обрезается', () => {
     expect(interpretReply(reply([], ' Я  услышал\nшум '), SATURDAY)).toEqual({
       ok: false,
       error: 'Не понял: «Я услышал шум»',
-      rejected: [],
+      rawArgs: null,
     });
 
     const long = 'а'.repeat(100);
     const result = interpretReply(reply([], long), SATURDAY);
 
-    expect(result).toEqual({ ok: false, error: `Не понял: «${'а'.repeat(79)}…»`, rejected: [] });
+    expect(result).toEqual({ ok: false, error: `Не понял: «${'а'.repeat(79)}…»`, rawArgs: null });
   });
 
   it('ровно 80 символов не обрезается', () => {
@@ -671,34 +517,22 @@ describe('interpretReply', () => {
     expect(interpretReply([], SATURDAY)).toEqual({
       ok: false,
       error: 'Не понял: модель ничего не ответила',
-      rejected: [],
+      rawArgs: null,
     });
     expect(interpretReply(reply([{ name: 'delete_task', arguments: {} }]), SATURDAY)).toEqual({
       ok: false,
       error: 'Не понял: модель вызвала неизвестный инструмент delete_task',
-      rejected: [],
+      rawArgs: null,
     });
   });
 
-  it('все вызовы неверны — ошибка первого, все в rejected', () => {
-    const first = { heard: 'маникюр', date: 'завтра', text: 'Маникюр' };
-    const second = { heard: 'маникюр', date: '2026-11-23', time: '25:00', text: 'Маникюр' };
+  it('неверные аргументы — ошибка с сырыми аргументами', () => {
+    const args = { heard: 'маникюр', date: 'завтра', text: 'Маникюр' };
 
-    expect(
-      interpretReply(
-        reply([
-          { name: 'add_task', arguments: first },
-          { name: 'add_task', arguments: second },
-        ]),
-        SATURDAY,
-      ),
-    ).toEqual({
+    expect(interpretReply(reply([{ name: 'add_task', arguments: args }]), SATURDAY)).toEqual({
       ok: false,
       error: 'Модель вернула неверную дату: «завтра»',
-      rejected: [
-        { rawArgs: first, error: 'Модель вернула неверную дату: «завтра»' },
-        { rawArgs: second, error: 'Модель вернула неверное время: «25:00»' },
-      ],
+      rawArgs: args,
     });
   });
 });
