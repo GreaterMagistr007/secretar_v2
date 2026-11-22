@@ -24,6 +24,7 @@
     MAX_RECORD_MS,
     MIN_PEAK,
     MIN_PRESS_MS,
+    RECORD_TAIL_MS,
     USER_TEXT,
     VOICE_MESSAGES,
     buildBasePrompt,
@@ -31,6 +32,7 @@
     interpretReply,
     nextPromptDayChange,
     promptDayKey,
+    recordTailMs,
     recordingProblem,
   } from '../voice-command';
   import {
@@ -67,6 +69,11 @@
   let phase = $state<'idle' | 'starting' | 'recording' | 'processing'>('idle');
   /** Палец на кнопке. Не реактивное: читается только кодом нажатия. */
   let held = false;
+  /**
+   * Кнопку отпустили пальцем или клавишей — запись продолжается хвостом. Сворачивание приложения
+   * и предел записи — без хвоста. Не реактивное.
+   */
+  let withTail = false;
   /** Будит ожидание отпускания. */
   let release: (() => void) | null = null;
 
@@ -191,7 +198,7 @@
       timeZone,
       model: model.fileName,
       device,
-      thresholds: { minPressMs: MIN_PRESS_MS, minPeak: MIN_PEAK },
+      thresholds: { minPressMs: MIN_PRESS_MS, minPeak: MIN_PEAK, recordTailMs: RECORD_TAIL_MS },
       steps,
     };
     let recording = false;
@@ -234,6 +241,16 @@
 
       await waitRelease();
       step('holdMs');
+      // Палец отпущен — запись принята: хвост идёт уже в виде «обработка».
+      phase = 'processing';
+
+      const tailMs = withTail ? recordTailMs(steps.holdMs) : 0;
+
+      if (tailMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, tailMs));
+      }
+
+      step('tailMs');
 
       const audio = await stopRecording();
 
@@ -246,8 +263,6 @@
       if (problem !== null) {
         throw new VoiceError(problem);
       }
-
-      phase = 'processing';
 
       const request = {
         audioPath: audio.path,
@@ -316,10 +331,17 @@
     }
 
     held = true;
+    withTail = false;
     void press();
   }
 
-  function end(): void {
+  /** Отпускание; `tail` — продолжить запись хвостом (обычное отпускание, не сворачивание). */
+  function end(tail: boolean): void {
+    // Повторное отпускание (pointercancel после сворачивания) решение первого не меняет.
+    if (held) {
+      withTail = tail;
+    }
+
     held = false;
     release?.();
   }
@@ -335,13 +357,13 @@
   }
 
   /**
-   * Сворачивание во время записи — как отпускание: в фоне микрофон отдаёт тишину. Возвращение
-   * в приложение — проверка модели и базового промпта: пока приложение было в фоне, мог
-   * смениться день промпта.
+   * Сворачивание во время записи — как отпускание, но без хвоста: в фоне микрофон отдаёт тишину.
+   * Возвращение в приложение — проверка модели и базового промпта: пока приложение было в фоне,
+   * мог смениться день промпта.
    */
   function handleVisibilityChange(): void {
     if (document.visibilityState === 'hidden') {
-      end();
+      end(false);
     } else if (available) {
       void refreshEngine();
     }
@@ -357,7 +379,7 @@
   function handleKeyUp(event: KeyboardEvent): void {
     if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
-      end();
+      end(true);
     }
   }
 </script>
@@ -375,8 +397,8 @@
     aria-label={label}
     title={label}
     onpointerdown={handlePointerDown}
-    onpointerup={end}
-    onpointercancel={end}
+    onpointerup={() => end(true)}
+    onpointercancel={() => end(true)}
     onkeydown={handleKeyDown}
     onkeyup={handleKeyUp}
     oncontextmenu={(event) => event.preventDefault()}

@@ -9,6 +9,7 @@ import {
   nextPromptDayChange,
   parseAddTaskArgs,
   promptDayKey,
+  recordTailMs,
   recordingProblem,
   successMessage,
   taskText,
@@ -360,6 +361,32 @@ describe('recordingProblem', () => {
   it('тишина эмулятора (пик 8) и полный уровень', () => {
     expect(recordingProblem(4000, 8)).toBe(silence);
     expect(recordingProblem(30000, 32768)).toBeNull();
+  });
+});
+
+describe('recordTailMs', () => {
+  it('слишком короткое нажатие — без хвоста: 0, 1 и 499 мс', () => {
+    expect(recordTailMs(0)).toBe(0);
+    expect(recordTailMs(1)).toBe(0);
+    expect(recordTailMs(499)).toBe(0);
+  });
+
+  it('с порога нажатия — полный хвост: 500 мс, 1660 мс (журнал «обед в три»), 10 с', () => {
+    expect(recordTailMs(500)).toBe(300);
+    expect(recordTailMs(1660)).toBe(300);
+    expect(recordTailMs(10_000)).toBe(300);
+  });
+
+  it('у предела записи хвост не выводит за 30 с', () => {
+    expect(recordTailMs(29_700)).toBe(300);
+    expect(recordTailMs(29_701)).toBe(299);
+    expect(recordTailMs(29_999)).toBe(1);
+    expect(recordTailMs(30_000)).toBe(0);
+  });
+
+  it('удержание дольше предела (таймер сработал позже) — без хвоста, не отрицательный', () => {
+    expect(recordTailMs(30_001)).toBe(0);
+    expect(recordTailMs(31_000)).toBe(0);
   });
 });
 

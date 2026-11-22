@@ -79,3 +79,4 @@ type: project
 - [progress_voice_chrono_priority.md](progress_voice_chrono_priority.md) — приоритет chrono-node на «сегодня/завтра/послезавтра» (Р-39), APK 10.
 - [findings_voice_phone_log_4.md](findings_voice_phone_log_4.md) — журнал №4 (APK 10): время теряется из-за распознавания «в семь» как «всем»; GPU ответ 5,5 с, CPU 5,6–7,5 с.
 - [findings_voice_time_hearing.md](findings_voice_time_hearing.md) — опыт с 10 формулировками промпта против потери короткого времени: ни одна без регрессий; «в семь» слышится «всем», «обед в три» обрезан отпусканием кнопки.
+- [progress_voice_tail.md](progress_voice_tail.md) — хвост записи 300 мс после отпускания кнопки, APK 11.
