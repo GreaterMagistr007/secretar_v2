@@ -362,6 +362,35 @@ export function checkDateWithChrono(heard: string, modelDate: string, now: Date)
   return { found: true, matched: result.text, date, agrees: date === modelDate };
 }
 
+/**
+ * «Сегодня», «завтра» или «послезавтра» отдельным словом в любом регистре (решение Р-39). Границы
+ * слова — вручную: `\b` в JS кириллицу не понимает. «Завтрашний» и «сегодняшний» не подходят.
+ */
+const RELATIVE_DAY = /(?<![а-яё])(?:сегодня|завтра|послезавтра)(?![а-яё])/iu;
+
+/** Выбор даты задачи: дата модели, дата `chrono-node`, сохранённая дата и откуда она взята. */
+export interface DateChoice {
+  model: string;
+  /** null — `chrono-node` дня в фразе не нашёл. */
+  chrono: string | null;
+  saved: string;
+  source: 'model' | 'chrono';
+}
+
+/**
+ * Дата задачи (решение Р-39): если `chrono-node` распознал «сегодня», «завтра» или «послезавтра»
+ * и его дата (с ночным правилом) расходится с датой модели — дата `chrono-node`: модель на слух
+ * путает «в пять» с «в пятницу». Иначе — дата модели, расхождение остаётся только в журнале.
+ */
+function chooseDate(modelDate: string, chrono: ChronoCheck): DateChoice {
+  const override =
+    chrono.agrees === false && chrono.matched !== null && RELATIVE_DAY.test(chrono.matched) ? chrono.date : null;
+
+  return override === null
+    ? { model: modelDate, chrono: chrono.date, saved: modelDate, source: 'model' }
+    : { model: modelDate, chrono: override, saved: override, source: 'chrono' };
+}
+
 /** Вызов инструмента в ответе модели. */
 export interface ModelToolCall {
   name: string;
@@ -382,6 +411,7 @@ export type ReplyResult =
       ok: true;
       args: AddTaskArgs;
       chrono: ChronoCheck;
+      dateChoice: DateChoice;
       task: NewTask;
       toast: string;
     }
@@ -403,9 +433,9 @@ function preview(text: string): string {
  * Разбирает ответ модели на нажатие в момент `now`: первый вызов `add_task` → проверка аргументов
  * → сверка `chrono-node` → задача и текст сообщения. Одна фраза — одна задача (решение владельца
  * 2026-11-22): если модель всё же вызвала инструмент несколько раз, сохраняется первый вызов,
- * остальные остаются только в журнале (`reply.messages`). Задача сохраняется по дате модели,
- * расхождение с `chrono-node` только отмечается — его видно в журнале. Без вызова — «Не понял»
- * с ответом модели.
+ * остальные остаются только в журнале (`reply.messages`). Дата задачи — `chooseDate`: модели,
+ * а при «сегодня/завтра/послезавтра», расходящихся с моделью, — `chrono-node`. Без вызова —
+ * «Не понял» с ответом модели.
  */
 export function interpretReply(messages: ModelMessage[], now: Date): ReplyResult {
   const call = messages.flatMap((message) => message.toolCalls).find((item) => item.name === ADD_TASK);
@@ -436,13 +466,16 @@ export function interpretReply(messages: ModelMessage[], now: Date): ReplyResult
 
   const args = parsed.value;
   const text = taskText(args.text, args.time);
+  const chrono = checkDateWithChrono(args.heard, args.date, now);
+  const dateChoice = chooseDate(args.date, chrono);
 
   return {
     ok: true,
     args,
-    chrono: checkDateWithChrono(args.heard, args.date, now),
-    task: { text, date: args.date, priority: 'medium', recurrence: 'none' },
-    toast: successMessage(text, args.date, toIsoDate(now)),
+    chrono,
+    dateChoice,
+    task: { text, date: dateChoice.saved, priority: 'medium', recurrence: 'none' },
+    toast: successMessage(text, dateChoice.saved, toIsoDate(now)),
   };
 }
 

@@ -272,6 +272,7 @@
 
       entry.args = result.args;
       entry.chrono = result.chrono;
+      entry.dateChoice = result.dateChoice;
       step('interpretMs');
 
       await onCreate(result.task);

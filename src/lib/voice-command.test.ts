@@ -470,14 +470,15 @@ describe('interpretReply', () => {
       ok: true,
       args: { heard: 'в понедельник маникюр в 12', date: '2026-11-23', time: '12:00', text: 'Маникюр' },
       chrono: { found: true, matched: 'в понедельник', date: '2026-11-23', agrees: true },
+      dateChoice: { model: '2026-11-23', chrono: '2026-11-23', saved: '2026-11-23', source: 'model' },
       task: { text: 'Маникюр в 12', date: '2026-11-23', priority: 'medium', recurrence: 'none' },
       toast: 'Добавлено: Маникюр в 12 — пн, 23 ноября',
     });
   });
 
-  it('расхождение с chrono не мешает сохранению по дате модели', () => {
+  it('расхождение с chrono по дню недели не мешает сохранению по дате модели', () => {
     const result = interpretReply(
-      reply([{ name: 'add_task', arguments: { heard: 'завтра хлеб', date: '2026-11-21', text: 'Хлеб' } }]),
+      reply([{ name: 'add_task', arguments: { heard: 'в пятницу хлеб', date: '2026-11-21', text: 'Хлеб' } }]),
       SATURDAY,
     );
 
@@ -565,6 +566,142 @@ describe('formatTimestamp', () => {
 
     it('смещение +05:30', () => {
       expect(formatTimestamp(new Date(2026, 10, 21, 23, 59, 59, 999))).toBe('2026-11-21T23:59:59.999+05:30');
+    });
+  });
+});
+
+describe('дата задачи: «сегодня/завтра/послезавтра» — по chrono-node (Р-39)', () => {
+  /** Воскресенье, 22 ноября 2026, 15:04 — нажатие из журнала телефона. */
+  const DAY = new Date(2026, 10, 22, 15, 4);
+  /** Ночь на 22 ноября, 01:58: календарный день D = 22-е. */
+  const NIGHT = new Date(2026, 10, 22, 1, 58);
+
+  function saved(heard: string, modelDate: string, now: Date): unknown {
+    const result = interpretReply(reply([{ name: 'add_task', arguments: { heard, date: modelDate, text: 'дело' } }]), now);
+
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    return { ...result.dateChoice, task: result.task.date, toast: result.toast };
+  }
+
+  it('пример из журнала: «Сегодня в пять забрать машину», модель → пятница 27-го', () => {
+    const result = interpretReply(
+      reply([
+        {
+          name: 'add_task',
+          arguments: { heard: 'Сегодня в пять забрать машину', date: '2026-11-27', text: 'Забрать машину' },
+        },
+      ]),
+      DAY,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      chrono: { found: true, matched: 'Сегодня', date: '2026-11-22', agrees: false },
+      dateChoice: { model: '2026-11-27', chrono: '2026-11-22', saved: '2026-11-22', source: 'chrono' },
+      task: { text: 'Забрать машину', date: '2026-11-22' },
+      toast: 'Добавлено: Забрать машину — вс, 22 ноября',
+    });
+  });
+
+  it('днём при расхождении — дата chrono-node, сообщение по ней', () => {
+    expect(saved('завтра в 12 маникюр', '2026-11-27', DAY)).toEqual({
+      model: '2026-11-27',
+      chrono: '2026-11-23',
+      saved: '2026-11-23',
+      source: 'chrono',
+      task: '2026-11-23',
+      toast: 'Добавлено: Дело — пн, 23 ноября',
+    });
+    expect(saved('СЕГОДНЯ купить хлеб', '2026-11-23', DAY)).toMatchObject({ saved: '2026-11-22', source: 'chrono' });
+  });
+
+  it('«послезавтра» не путается с «завтра» и наоборот', () => {
+    // Модель дала дату другого слова — сохраняется дата сказанного.
+    expect(saved('послезавтра позвонить маме', '2026-11-23', DAY)).toMatchObject({
+      chrono: '2026-11-24',
+      saved: '2026-11-24',
+      source: 'chrono',
+    });
+    expect(saved('Завтра позвонить маме', '2026-11-24', DAY)).toMatchObject({
+      chrono: '2026-11-23',
+      saved: '2026-11-23',
+      source: 'chrono',
+    });
+    expect(saved('на Послезавтра в 7 вечера', '2026-11-23', DAY)).toMatchObject({ saved: '2026-11-24' });
+  });
+
+  it('днём при совпадении — дата модели', () => {
+    for (const [heard, date] of [
+      ['сегодня забрать Озон', '2026-11-22'],
+      ['завтра в 12 маникюр', '2026-11-23'],
+      ['послезавтра позвонить', '2026-11-24'],
+    ]) {
+      expect(saved(heard, date, DAY)).toMatchObject({ model: date, chrono: date, saved: date, source: 'model' });
+    }
+  });
+
+  it('ночью при расхождении — дата chrono-node с ночным правилом', () => {
+    expect(saved('сегодня в 3 забрать машину', '2026-11-21', NIGHT)).toMatchObject({
+      chrono: '2026-11-22',
+      saved: '2026-11-22',
+      source: 'chrono',
+      toast: 'Добавлено: Дело — вс, 22 ноября',
+    });
+    expect(saved('завтра в 12 маникюр', '2026-11-23', NIGHT)).toMatchObject({
+      chrono: '2026-11-22',
+      saved: '2026-11-22',
+      source: 'chrono',
+    });
+    expect(saved('послезавтра позвонить', '2026-11-22', NIGHT)).toMatchObject({
+      chrono: '2026-11-23',
+      saved: '2026-11-23',
+      source: 'chrono',
+    });
+  });
+
+  it('ночью при совпадении — дата модели', () => {
+    for (const [heard, date] of [
+      ['Сегодня забрать Озон', '2026-11-22'],
+      ['завтра в 12 маникюр', '2026-11-22'],
+      ['послезавтра позвонить', '2026-11-23'],
+    ]) {
+      expect(saved(heard, date, NIGHT)).toMatchObject({ model: date, chrono: date, saved: date, source: 'model' });
+    }
+  });
+
+  it('день недели или число без этих слов — дата модели, даже при расхождении', () => {
+    expect(saved('в пятницу забрать машину', '2026-12-04', DAY)).toEqual({
+      model: '2026-12-04',
+      chrono: '2026-11-27',
+      saved: '2026-12-04',
+      source: 'model',
+      task: '2026-12-04',
+      toast: 'Добавлено: Дело — пт, 4 декабря',
+    });
+    expect(saved('25 ноября оплатить интернет', '2026-12-25', DAY)).toMatchObject({
+      chrono: '2026-11-25',
+      saved: '2026-12-25',
+      source: 'model',
+    });
+    // Считается только первый распознанный кусок — день недели.
+    expect(saved('в понедельник маникюр, а завтра хлеб', '2026-11-30', DAY)).toMatchObject({
+      saved: '2026-11-30',
+      source: 'model',
+    });
+  });
+
+  it('день не назван или пустой heard — дата модели, chrono null', () => {
+    expect(saved('маникюр в 12', '2026-11-23', DAY)).toMatchObject({ chrono: null, saved: '2026-11-23', source: 'model' });
+    expect(saved('', '2026-11-25', DAY)).toEqual({
+      model: '2026-11-25',
+      chrono: null,
+      saved: '2026-11-25',
+      source: 'model',
+      task: '2026-11-25',
+      toast: 'Добавлено: Дело — ср, 25 ноября',
     });
   });
 });

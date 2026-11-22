@@ -76,3 +76,4 @@ type: project
 - [findings_voice_phone_log_2.md](findings_voice_phone_log_2.md) — журнал №2 с телефона (APK 7): разбивка на GPU — промпт 3,8 с, генерация 5–6 с при 9 ток/с, звук 0,8 с; загрузка с кэшем 8,9 с.
 - [progress_voice_speedup.md](progress_voice_speedup.md), [findings_skeptic_voice_speedup.md](findings_skeptic_voice_speedup.md) — ускорение APK 8 (промпт один раз + clone, MTP, окно 2048, выбор GPU/CPU, несколько задач, ночное «сегодня»): журнал реализации, ревью У-1…У-11.
 - [findings_voice_phone_log_3.md](findings_voice_phone_log_3.md) — журнал №3 (APK 8): GPU ответ 7,8–9,1 с, «Готово» 2 с, CPU медленнее, загрузка GPU+MTP 58 с; утечка времени нажатия в задачу.
+- [progress_voice_chrono_priority.md](progress_voice_chrono_priority.md) — приоритет chrono-node на «сегодня/завтра/послезавтра» (Р-39), APK 10.
