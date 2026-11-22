@@ -72,3 +72,4 @@ type: project
 - [findings_skeptic_voice_button.md](findings_skeptic_voice_button.md) — ревью голосовой кнопки, находки Г-1…Г-10 (тишина, гонка нажатий, полнота журнала); Г-1…Г-8 исправлены, Г-9 и Г-10 оставлены.
 - [findings_voice_phone_log_1.md](findings_voice_phone_log_1.md) — первый журнал голосовой кнопки с телефона владельца: 2 из 2 фраз верно, инференс 12–14 с на GPU, загрузка 51 с.
 - [progress_voice_speed.md](progress_voice_speed.md), [findings_skeptic_voice_speed.md](findings_skeptic_voice_speed.md) — разбивка времени ответа модели в журнале и ночное правило (Р-38): журнал реализации, ревью Ск-1…Ск-11.
+- [findings_voice_speed_host.md](findings_voice_speed_host.md) — замеры скорости на компьютере на записях владельца: состав запроса по токенам, MTP, кэш 2048, общий префикс промпта; 5,9 → 1,5 с на хосте.
