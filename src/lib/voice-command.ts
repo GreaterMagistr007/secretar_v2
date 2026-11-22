@@ -79,17 +79,25 @@ export const ADD_TASK_TOOL = {
   },
 } as const;
 
-/** Текст, который идёт в сообщении пользователя вместе с записью. */
+/** Постоянная часть текста, который идёт в сообщении пользователя вместе с записью. */
 export const USER_TEXT = 'Команда пользователя — в аудиозаписи.';
 
 /**
- * Час, до которого ночь ещё относится к прошлому дню (решение Р-38): в 01:58 22 ноября «сегодня» —
- * 21 ноября, «завтра» — 22 ноября.
+ * Ответ инструмента на каждый вызов `add_task`: получив его, модель вызывает инструмент снова
+ * для следующего дня или дела либо отвечает «Готово». Задачи сохраняет веб-часть после разбора,
+ * ответ лишь продолжает разговор — несколько вызовов в одном ответе Gemma 4 не делает.
+ */
+export const TOOL_RESPONSE = 'Задача добавлена';
+
+/**
+ * Час, до которого ночь ещё относится к прошлому дню (решение Р-38): в 01:58 22 ноября «завтра» —
+ * 22 ноября, «послезавтра» — 23-е, дни недели — от 21-го; «сегодня» — тоже 22-е: прошедший день
+ * не получается никогда.
  */
 export const NIGHT_END_HOUR = 4;
 
 /**
- * Момент, от которого считаются «сегодня», «завтра» и дни недели: до `NIGHT_END_HOUR` — то же время
+ * Момент, от которого ночью считаются «завтра» и дни недели: до `NIGHT_END_HOUR` — то же время
  * прошлых суток, иначе сам `now`.
  */
 export function dayReference(now: Date): Date {
@@ -132,53 +140,73 @@ function addDays(date: Date, days: number): Date {
 }
 
 /**
- * Системный промпт на момент нажатия `now`: дата, время, день недели, часовой пояс телефона,
- * календарь на две недели (снимает с модели арифметику дней) и правила разбора.
+ * Ключ «дня промпта»: календарная дата и признак ночи. Базовый промпт (`buildBasePrompt`) зависит
+ * только от него и часового пояса, поэтому читается моделью один раз и меняется на границах
+ * 00:00 и `NIGHT_END_HOUR`:00 — «2026-11-22 ночь» до 04:00, «2026-11-22 день» после.
+ */
+export function promptDayKey(now: Date): string {
+  return `${toIsoDate(now)} ${now.getHours() < NIGHT_END_HOUR ? 'ночь' : 'день'}`;
+}
+
+/** Ближайшая смена ключа дня промпта после `now`: 04:00 этих суток ночью, иначе полночь. */
+export function nextPromptDayChange(now: Date): Date {
+  return now.getHours() < NIGHT_END_HOUR
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), NIGHT_END_HOUR)
+    : addDays(now, 1);
+}
+
+/**
+ * Базовый (постоянный в пределах дня промпта) системный промпт: дата, день недели, часовой пояс
+ * телефона, календарь на две недели (снимает с модели арифметику дней) и правила разбора.
+ * Времени суток в нём нет — оно идёт в сообщении нажатия (`buildPressMessage`), поэтому промпт
+ * с описанием инструмента модель читает один раз и на нажатие копирует готовый разговор.
  *
- * Ночное правило (решение Р-38): до `NIGHT_END_HOUR` «сегодня» — прошлый календарный день,
- * календарь, метки и дни недели — от него (`dayReference`); день не назван — ближайший календарный
- * день, то есть текущая календарная дата, а не прошедшая. Промпт говорит это модели явно.
+ * Ночное правило (решение Р-38): до `NIGHT_END_HOUR` календарного дня D «сегодня», «завтра» и день
+ * без названия — D, «послезавтра» — D+1, дни недели — от D−1 (ближайший такой день не раньше D),
+ * «через N дней» — от D; прошедший день не получается никогда. Календарь — с D. Промпт говорит
+ * это модели явно.
  *
  * Правило дня недели: «в понедельник» — ближайший понедельник после сегодняшнего; если сегодня
  * понедельник — через неделю (решение по плану этапа 5, «следующий ближайший»). Сверка
  * `checkDateWithChrono` приводит `chrono-node` к тому же правилу.
  */
-export function buildSystemPrompt(now: Date, timeZone: string): string {
-  const reference = dayReference(now);
-  const night = reference !== now;
-  const today = toIsoDate(reference);
-  const calendarToday = toIsoDate(now);
-  const tomorrow = toIsoDate(addDays(reference, 1));
-  const afterTomorrow = toIsoDate(addDays(reference, 2));
-  const labels = ['сегодня', 'завтра', 'послезавтра'];
+export function buildBasePrompt(now: Date, timeZone: string): string {
+  const night = now.getHours() < NIGHT_END_HOUR;
+  const today = toIsoDate(now);
+  // Ночью «завтра» — наступившие сутки, то есть сегодня.
+  const tomorrow = toIsoDate(addDays(now, night ? 0 : 1));
+  const afterTomorrow = toIsoDate(addDays(now, night ? 1 : 2));
+  const labels = night ? ['сегодня и завтра', 'послезавтра'] : ['сегодня', 'завтра', 'послезавтра'];
   const calendar: string[] = [];
 
   for (let offset = 0; offset <= CALENDAR_DAYS; offset += 1) {
-    const day = addDays(reference, offset);
+    const day = addDays(now, offset);
     const label = offset < labels.length ? ` (${labels[offset]})` : '';
 
     calendar.push(`${toIsoDate(day)} — ${WEEKDAYS[day.getDay()]}${label}`);
   }
 
-  const spoken = `${WEEKDAYS[now.getDay()]}, ${formatLongDate(calendarToday)}`;
+  const spoken = `${WEEKDAYS[now.getDay()]}, ${formatLongDate(today)}`;
   const todayLine = night
-    ? `Сейчас ночь: до ${pad(NIGHT_END_HOUR)}:00 «сегодня» — это ещё вчерашний день, ${WEEKDAYS[reference.getDay()]}, ${formatLongDate(today)} (${today}); «завтра», «послезавтра» и дни недели считай от него.`
+    ? `Сегодня — ${today}. Сейчас ночь, до ${pad(NIGHT_END_HOUR)}:00: «завтра» ночью говорят о наступивших сутках, поэтому «завтра» — тоже ${today}, а «послезавтра» — ${afterTomorrow}.`
     : `Сегодня — ${today}.`;
 
   return [
     'Ты разбираешь голосовые команды для задачника «Секретарь». В аудиозаписи пользователь по-русски говорит одну фразу — какое дело добавить в список задач и на какой день.',
     '',
-    `Сейчас: ${spoken}, ${clock(now)} (часовой пояс ${timeZone}). ${todayLine}`,
+    `Сейчас: ${spoken} (часовой пояс ${timeZone}). ${todayLine}`,
     '',
     'Календарь на две недели вперёд:',
     ...calendar,
     '',
-    `Если в фразе есть дело, вызови инструмент ${ADD_TASK} один раз. Аргументы:`,
+    `Если в фразе есть дело, вызови инструмент ${ADD_TASK}. Один вызов — одна задача на один день; если дней или дел несколько («в понедельник и в среду бассейн»), после ответа инструмента вызови ${ADD_TASK} снова — для следующего дня или дела. Когда все задачи добавлены, ответь одним словом: Готово. Аргументы:`,
     '- heard — фраза дословно, как ты её услышал, без исправлений и пересказа.',
     '- date — день задачи в формате ГГГГ-ММ-ДД:',
-    night ? `  - день не назван — ${calendarToday} (ночь: ближайший календарный день);` : `  - день не назван — сегодня, ${today};`,
+    `  - день не назван — сегодня, ${today};`,
     `  - «сегодня» — ${today}, «завтра» — ${tomorrow}, «послезавтра» — ${afterTomorrow};`,
-    '  - день недели («в понедельник», «в пятницу», «в следующий вторник») — ближайший такой день после сегодняшнего; если сегодня тот же день недели — тот же день следующей недели, через 7 дней;',
+    night
+      ? `  - день недели («в понедельник», «в пятницу», «в следующий вторник») — ближайший такой день не раньше сегодняшнего: ночью сегодняшний день недели — это сегодня, ${today};`
+      : '  - день недели («в понедельник», «в пятницу», «в следующий вторник») — ближайший такой день после сегодняшнего; если сегодня тот же день недели — тот же день следующей недели, через 7 дней;',
     '  - число месяца («25 ноября», «25-го») — ближайшая такая дата не раньше сегодняшней; если месяц не назван и это число в текущем месяце уже прошло — то же число следующего месяца;',
     '  - «через неделю» — через 7 дней, «через N дней» — через N дней.',
     '- time — время в формате ЧЧ:ММ, только если оно названо: «в 12» — 12:00, «в полдень» — 12:00, «в 7 вечера» — 19:00, «в 9 утра» — 09:00, «в 3 часа дня» — 15:00, «в половине восьмого» — 07:30, «в 18:30» — 18:30; без «утра», «дня» и «вечера» — как сказано: «в 7» — 07:00. Время не названо — аргумент time не передавай.',
@@ -186,6 +214,11 @@ export function buildSystemPrompt(now: Date, timeZone: string): string {
     '',
     `Если фраза пустая, неразборчивая или в ней нет дела, инструмент не вызывай, а ответь одной строкой, что ты услышал.`,
   ].join('\n');
+}
+
+/** Текст сообщения нажатия к записи: время нажатия ЧЧ:ММ и `USER_TEXT`. */
+export function buildPressMessage(now: Date): string {
+  return `Сейчас ${clock(now)}. ${USER_TEXT}`;
 }
 
 /** Аргументы вызова `add_task` после проверки. */
@@ -281,6 +314,21 @@ export function successMessage(text: string, date: string, today: string): strin
   return `Добавлено: ${text} — ${formatWeekdayDate(date, today)}`;
 }
 
+/**
+ * Сообщение о задачах из одной фразы. Одна — как `successMessage`; несколько с одинаковым
+ * текстом — текст один раз и дни через «; »: «Добавлено: Бассейн — пн, 23 ноября; ср, 25 ноября»;
+ * с разным — «текст — день» через «; ». Отклонённые вызовы — в конце: «, не понял: 1».
+ */
+export function addedMessage(tasks: readonly Pick<NewTask, 'text' | 'date'>[], today: string, rejected: number): string {
+  const day = (date: string): string => formatWeekdayDate(date, today);
+  const sameText = tasks.every((task) => task.text === tasks[0].text);
+  const list = sameText
+    ? `${tasks[0].text} — ${tasks.map((task) => day(task.date)).join('; ')}`
+    : tasks.map((task) => `${task.text} — ${day(task.date)}`).join('; ');
+
+  return `Добавлено: ${list}${rejected > 0 ? `, не понял: ${rejected}` : ''}`;
+}
+
 /** Итог сверки даты модели с `chrono-node`. */
 export interface ChronoCheck {
   /** Нашёл ли `chrono-node` в фразе день (число, день недели, «завтра»). */
@@ -294,17 +342,22 @@ export interface ChronoCheck {
 }
 
 /**
- * Сверяет дату модели с `chrono-node` по услышанной фразе (выбор 5.2). Сверяется только дата
- * и только когда в фразе назван день: время «в 12» без дня `chrono-node` относит к ближайшим
- * 12:00 — это может быть и завтра, и сравнение было бы ложным. Будущее направление
- * (`forwardDate`) — как правило промпта: «в понедельник» не бывает в прошлом.
+ * Сверяет дату модели с `chrono-node` по услышанной фразе (выбор 5.2), сказанной в момент `now`.
+ * Сверяется только дата и только когда в фразе назван день: время «в 12» без дня `chrono-node`
+ * относит к ближайшим 12:00 — это может быть и завтра, и сравнение было бы ложным. Будущее
+ * направление (`forwardDate`) — как правило промпта: «в понедельник» не бывает в прошлом.
  *
  * Сегодняшний день недели `chrono-node` считает по времени суток: в понедельник в 9:05
  * «в понедельник» — сегодня, а в 19:30 — через неделю (проверено на 2.10.3). Правило промпта —
  * всегда через неделю, поэтому день недели, выпавший на сегодня, сдвигается на 7 дней.
+ *
+ * Ночью (до `NIGHT_END_HOUR`) разбор идёт от прошлых суток (`dayReference`) — так «завтра» и дни
+ * недели совпадают с промптом, — а дата прошлых суток («сегодня») приводится к календарной:
+ * прошедшего дня промпт не даёт.
  */
 export function checkDateWithChrono(heard: string, modelDate: string, now: Date): ChronoCheck {
-  const result = heard === '' ? undefined : parseRussianDate(heard, now, { forwardDate: true })[0];
+  const reference = dayReference(now);
+  const result = heard === '' ? undefined : parseRussianDate(heard, reference, { forwardDate: true })[0];
 
   if (result === undefined) {
     return { found: false, matched: null, date: null, agrees: null };
@@ -316,12 +369,16 @@ export function checkDateWithChrono(heard: string, modelDate: string, now: Date)
     return { found: false, matched: result.text, date: null, agrees: null };
   }
 
-  const today = toIsoDate(now);
+  const referenceDay = toIsoDate(reference);
   const weekdayOnly = !result.start.isCertain('day');
   let date = toIsoDate(result.start.date());
 
-  if (weekdayOnly && date === today) {
-    date = toIsoDate(addDays(now, 7));
+  if (weekdayOnly && date === referenceDay) {
+    date = toIsoDate(addDays(reference, 7));
+  }
+
+  if (reference !== now && date === referenceDay) {
+    date = toIsoDate(now);
   }
 
   return { found: true, matched: result.text, date, agrees: date === modelDate };
@@ -341,20 +398,33 @@ export interface ModelMessage {
   channels: Record<string, unknown>;
 }
 
+/** Вызов `add_task`, прошедший проверку: задача и сверка её даты. */
+export interface AcceptedCall {
+  args: AddTaskArgs;
+  chrono: ChronoCheck;
+  task: NewTask;
+}
+
+/** Вызов `add_task`, не прошедший проверку: сырые аргументы и причина. */
+export interface RejectedCall {
+  rawArgs: unknown;
+  error: string;
+}
+
 /** Итог разбора ответа модели. */
 export type ReplyResult =
   | {
       ok: true;
-      args: AddTaskArgs;
-      chrono: ChronoCheck;
-      task: NewTask;
+      /** Задачи по порядку вызовов — все сохраняются. */
+      accepted: AcceptedCall[];
+      rejected: RejectedCall[];
       toast: string;
     }
   | {
       ok: false;
       error: string;
-      /** Сырые аргументы вызова, если вызов был. */
-      rawArgs: unknown;
+      /** Вызовы с неверными аргументами, если вызовы были. */
+      rejected: RejectedCall[];
     };
 
 /** Строка для сообщения: первые символы, длинное обрезается многоточием. */
@@ -365,48 +435,69 @@ function preview(text: string): string {
 }
 
 /**
- * Разбирает ответ модели на нажатие в момент `now`: первый вызов `add_task` → проверка аргументов
- * → сверка `chrono-node` → задача и текст сообщения. Задача сохраняется по дате модели,
- * расхождение с `chrono-node` только отмечается — его видно в журнале. Без вызова — «Не понял»
- * с ответом модели.
+ * Разбирает ответ модели на нажатие в момент `now`: все вызовы `add_task` (из одной фразы может
+ * быть несколько задач — по задаче на дело и день) → проверка аргументов каждого → сверка
+ * `chrono-node` → задачи и текст сообщения. Задачи сохраняются по дате модели, расхождение
+ * с `chrono-node` только отмечается — его видно в журнале. Неверные вызовы отклоняются, верные
+ * сохраняются, повтор той же задачи (текст и день) пропускается; нет ни одного верного — ошибка
+ * первого. Без вызова — «Не понял» с ответом модели.
  */
 export function interpretReply(messages: ModelMessage[], now: Date): ReplyResult {
-  const call = messages.flatMap((message) => message.toolCalls).find((item) => item.name === ADD_TASK);
+  const calls = messages.flatMap((message) => message.toolCalls);
+  const addCalls = calls.filter((item) => item.name === ADD_TASK);
 
-  if (call === undefined) {
-    const others = messages.flatMap((message) => message.toolCalls).map((item) => item.name);
+  if (addCalls.length === 0) {
     const reply = preview(messages.map((message) => message.text).join(' '));
 
     if (reply !== '') {
-      return { ok: false, error: `Не понял: «${reply}»`, rawArgs: null };
+      return { ok: false, error: `Не понял: «${reply}»`, rejected: [] };
     }
 
     return {
       ok: false,
       error:
-        others.length > 0
-          ? `Не понял: модель вызвала неизвестный инструмент ${others.join(', ')}`
+        calls.length > 0
+          ? `Не понял: модель вызвала неизвестный инструмент ${calls.map((item) => item.name).join(', ')}`
           : 'Не понял: модель ничего не ответила',
-      rawArgs: null,
+      rejected: [],
     };
   }
 
-  const parsed = parseAddTaskArgs(call.arguments);
+  const accepted: AcceptedCall[] = [];
+  const rejected: RejectedCall[] = [];
 
-  if (!parsed.ok) {
-    return { ok: false, error: parsed.error, rawArgs: call.arguments };
+  for (const call of addCalls) {
+    const parsed = parseAddTaskArgs(call.arguments);
+
+    if (!parsed.ok) {
+      rejected.push({ rawArgs: call.arguments, error: parsed.error });
+      continue;
+    }
+
+    const args = parsed.value;
+    const task: NewTask = { text: taskText(args.text, args.time), date: args.date, priority: 'medium', recurrence: 'none' };
+
+    // Модель повторила ту же задачу (зациклилась на ответе инструмента) — второй раз не сохранять.
+    if (accepted.some((item) => item.task.text === task.text && item.task.date === task.date)) {
+      continue;
+    }
+
+    accepted.push({ args, chrono: checkDateWithChrono(args.heard, args.date, now), task });
   }
 
-  const args = parsed.value;
-  const text = taskText(args.text, args.time);
+  if (accepted.length === 0) {
+    return { ok: false, error: rejected[0].error, rejected };
+  }
 
   return {
     ok: true,
-    args,
-    // Сверка — от того же сдвинутого ночью момента, что и промпт.
-    chrono: checkDateWithChrono(args.heard, args.date, dayReference(now)),
-    task: { text, date: args.date, priority: 'medium', recurrence: 'none' },
-    toast: successMessage(text, args.date, toIsoDate(now)),
+    accepted,
+    rejected,
+    toast: addedMessage(
+      accepted.map((item) => item.task),
+      toIsoDate(now),
+      rejected.length,
+    ),
   };
 }
 

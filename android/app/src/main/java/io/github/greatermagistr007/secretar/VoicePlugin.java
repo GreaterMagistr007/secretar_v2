@@ -34,6 +34,8 @@ import com.google.ai.edge.litertlm.ExperimentalFlags;
 import com.google.ai.edge.litertlm.Message;
 import com.google.ai.edge.litertlm.OpenApiTool;
 import com.google.ai.edge.litertlm.SamplerConfig;
+import com.google.ai.edge.litertlm.SpeculativeDecodingConfig;
+import com.google.ai.edge.litertlm.SpeculativeDecodingMode;
 import com.google.ai.edge.litertlm.ThinkingConfig;
 import com.google.ai.edge.litertlm.ToolCall;
 import com.google.ai.edge.litertlm.ToolKt;
@@ -77,6 +79,10 @@ import org.json.JSONObject;
  * с Activity, а загрузка модели занимает секунды. Загрузка и инференс идут в одном фоновом
  * потоке по очереди: нажатие во время загрузки ждёт её конца, а не падает.
  *
+ * Базовый разговор: системный промпт дня с описанием инструмента читается моделью один раз
+ * (после загрузки и при смене текста), на нажатие — копия готового разговора ({@code clone()})
+ * и сообщение нажатия со звуком. Не скопировался — новый разговор, как до этого.
+ *
  * Описание — docs/mechanic_voice.md, раздел «Голосовая кнопка».
  */
 @CapacitorPlugin(
@@ -96,11 +102,34 @@ public class VoicePlugin extends Plugin {
     /** Предел записи: модель принимает до 30 с звука. */
     private static final int MAX_RECORD_BYTES = 30 * WavFile.SAMPLE_RATE * WavFile.BYTES_PER_SAMPLE;
 
-    /** Окно контекста: 30 с звука — 750 токенов, промпт с описанием инструмента — около тысячи. */
-    private static final int MAX_NUM_TOKENS = 4096;
+    /**
+     * Окно контекста (размер KV-кэша): промпт с описанием инструмента — около 1000 токенов, 30 с
+     * звука — 750 (25 ток/с), сообщение нажатия с разметкой — около 30, ответ — до 128: около 1910.
+     * Модель компилируется под это число: 2048 вместо 4096 ускоряет и чтение, и генерацию.
+     */
+    private static final int MAX_NUM_TOKENS = 2048;
 
-    /** Ответ — один вызов инструмента: несколько десятков токенов. */
+    /**
+     * Предел ответа на один ход: ход — один вызов инструмента (42–65 токенов на записях владельца)
+     * или «Готово»; задачи фразы идут отдельными ходами, поэтому предел на ход не растёт.
+     */
     private static final int MAX_OUTPUT_TOKENS = 128;
+
+    /**
+     * Сколько раз отдать модели ответ инструмента за нажатие: до 5 задач из одной фразы. Предел —
+     * от зацикливания: модель может вызывать инструмент снова и снова.
+     */
+    private static final int MAX_TOOL_ROUNDS = 4;
+
+    /**
+     * Токенов ответа на прогреве: несколько, а не один — чтобы драфтер MTP отработал хотя бы шаг
+     * и его отказ случился при загрузке (с откатом), а не на первом нажатии.
+     */
+    private static final int WARM_UP_OUTPUT_TOKENS = 8;
+
+    private static final String GPU = "GPU";
+
+    private static final String CPU = "CPU";
 
     /** Жадный выбор: topK 1, topP 1, температура 0 — один и тот же звук даёт один и тот же ответ. */
     private static final int TOP_K = 1;
@@ -135,9 +164,34 @@ public class VoicePlugin extends Plugin {
 
     private static String engineBackend;
 
+    /** Устройство, выбранное пользователем для текущей загрузки: GPU или CPU. */
+    private static String engineDevice;
+
+    /** Режим MTP загруженного движка: ON или OFF (откат); null — не загружен. */
+    private static String engineMtp;
+
     private static long engineLoadMs;
 
     private static String engineError;
+
+    /** Номер последней запрошенной загрузки: результат прежней (сменили устройство) отбрасывается. */
+    private static int loadGeneration;
+
+    /** Базовый промпт и инструмент, которые нужны сейчас (последние от веб-части). */
+    private static String wantedBasePrompt;
+
+    private static String wantedBaseTool;
+
+    /** Базовый разговор с прочитанным промптом; создаётся и копируется только в фоновом потоке. */
+    private static Conversation base;
+
+    /** Промпт и инструмент, прочитанные в {@code base}. */
+    private static String basePrompt;
+
+    private static String baseTool;
+
+    /** Когда и за сколько прочитана база, почему, замеры; ошибка — {@code error}. Не меняется после записи. */
+    private static JSObject baseInfo;
 
     private AudioRecord recorder;
 
@@ -154,17 +208,23 @@ public class VoicePlugin extends Plugin {
     private long recordStartedAt;
 
     /**
-     * Загружает модель {@code { fileName, size }} в фоне, если файл скачан и проверен загрузчиком
-     * (ModelDownloaderPlugin), и отдаёт состояние движка. Повторный вызов во время загрузки или
-     * при загруженной модели ничего не запускает; после ошибки загрузка повторяется.
+     * Загружает модель {@code { fileName, size, device, systemPrompt?, tool? }} в фоне на устройстве
+     * {@code device} (GPU или CPU), если файл скачан и проверен загрузчиком (ModelDownloaderPlugin),
+     * и отдаёт состояние движка. Повторный вызов во время загрузки или при загруженной модели
+     * ничего не запускает; после ошибки и при смене устройства загрузка повторяется.
+     * {@code systemPrompt} и {@code tool} — базовый промпт дня: читается после загрузки, а если
+     * модель готова и текст изменился (сменился день) — сразу в фоне.
      */
     @PluginMethod
     public void load(PluginCall call) {
         String fileName = call.getString("fileName");
         // optLong, а не getLong: getLong Capacitor отдаёт null для числа, уместившегося в int.
         long size = call.getData().optLong("size", 0);
+        String device = call.getString("device", GPU);
+        String prompt = call.getString("systemPrompt");
+        String tool = call.getString("tool");
 
-        if (!ModelDownloadState.isSafeFileName(fileName) || size <= 0) {
+        if (!ModelDownloadState.isSafeFileName(fileName) || size <= 0 || !(GPU.equals(device) || CPU.equals(device))) {
             call.reject("Неверные параметры модели");
 
             return;
@@ -178,6 +238,11 @@ public class VoicePlugin extends Plugin {
                         .getString(ModelDownloaderPlugin.KEY_VERIFIED, null));
 
         synchronized (ENGINE_LOCK) {
+            if (prompt != null && tool != null) {
+                wantedBasePrompt = prompt;
+                wantedBaseTool = tool;
+            }
+
             if (!verified) {
                 if (engine != null || LOADING.equals(engineState)) {
                     // Модель удалили или заменили: движок держит отображение удалённого файла.
@@ -186,15 +251,20 @@ public class VoicePlugin extends Plugin {
 
                 engineState = ABSENT;
                 engineFile = null;
-            } else if (!fileName.equals(engineFile) || ABSENT.equals(engineState) || ERROR.equals(engineState)) {
+            } else if (!fileName.equals(engineFile) || ABSENT.equals(engineState) || ERROR.equals(engineState)
+                    || !device.equals(engineDevice)) {
                 engineState = LOADING;
                 engineFile = fileName;
+                engineDevice = device;
                 engineError = null;
 
                 String path = model.getAbsolutePath();
                 Context context = getContext().getApplicationContext();
+                int generation = ++loadGeneration;
 
-                ENGINE_THREAD.execute(() -> loadEngine(context, path));
+                ENGINE_THREAD.execute(() -> loadEngine(context, path, device, generation));
+            } else if (READY.equals(engineState) && !baseIsWanted()) {
+                ENGINE_THREAD.execute(() -> ensureBase("сменился текст (проверка модели)"));
             }
 
             call.resolve(engineStatus());
@@ -351,10 +421,13 @@ public class VoicePlugin extends Plugin {
     }
 
     /**
-     * Отдаёт запись модели: {@code { audioPath, systemPrompt, userText, tool }}, tool — описание
-     * инструмента JSON-строкой. Разговор создаётся на каждое нажатие: в системном промпте текущее
-     * время, переиспользовать префикс с ним нельзя. Инструмент — в ручном режиме
-     * (automaticToolCalling = false): вызов возвращается как есть, модель после него не догенерирует.
+     * Отдаёт запись модели: {@code { audioPath, systemPrompt, userText, tool, toolResponse }}:
+     * systemPrompt — базовый промпт дня, userText — сообщение нажатия (время), tool — описание
+     * инструмента JSON-строкой, toolResponse — ответ инструмента на каждый вызов. Разговор — копия
+     * базового; база другого дня перечитывается перед нажатием. Инструмент — в ручном режиме
+     * (automaticToolCalling = false): вызовы возвращаются как есть, а чтобы модель вызвала его
+     * для следующей задачи фразы, ей отдаётся toolResponse — пока она вызывает инструмент, но не
+     * больше {@code MAX_TOOL_ROUNDS} ходов.
      */
     @PluginMethod
     public void process(PluginCall call) {
@@ -362,8 +435,9 @@ public class VoicePlugin extends Plugin {
         String systemPrompt = call.getString("systemPrompt");
         String userText = call.getString("userText", "");
         String tool = call.getString("tool");
+        String toolResponse = call.getString("toolResponse");
 
-        if (audioPath == null || systemPrompt == null || tool == null) {
+        if (audioPath == null || systemPrompt == null || tool == null || toolResponse == null) {
             call.reject("Неверные параметры обработки");
 
             return;
@@ -371,7 +445,7 @@ public class VoicePlugin extends Plugin {
 
         long queuedAt = SystemClock.elapsedRealtime();
 
-        ENGINE_THREAD.execute(() -> runModel(call, queuedAt, audioPath, systemPrompt, userText, tool));
+        ENGINE_THREAD.execute(() -> runModel(call, queuedAt, audioPath, systemPrompt, userText, tool, toolResponse));
     }
 
     /** Добавляет строку {@code { line }} в журнал и убирает записи и WAV старше 30 нажатий. */
@@ -566,14 +640,18 @@ public class VoicePlugin extends Plugin {
     }
 
     private static void runModel(PluginCall call, long queuedAt, String audioPath, String systemPrompt,
-            String userText, String toolJson) {
+            String userText, String toolJson, String toolResponse) {
         long startedAt = SystemClock.elapsedRealtime();
         Engine current;
         String backend;
+        String device;
+        String mtp;
 
         synchronized (ENGINE_LOCK) {
             current = READY.equals(engineState) ? engine : null;
             backend = engineBackend;
+            device = engineDevice;
+            mtp = engineMtp;
 
             if (current == null) {
                 String reason = engineError != null ? engineError : "состояние " + engineState;
@@ -582,38 +660,17 @@ public class VoicePlugin extends Plugin {
 
                 return;
             }
+
+            // Нажатие решает, какая база нужна: его текст — последний.
+            wantedBasePrompt = systemPrompt;
+            wantedBaseTool = toolJson;
         }
 
-        // Замеры — вне try: при ошибке модели уже собранное (чтение промпта) уходит в журнал.
+        // Замеры и сведения о разговоре — вне try: при ошибке модели собранное уходит в журнал.
         JSObject timing = new JSObject();
+        JSObject prepared = new JSObject();
 
         try {
-            OpenApiTool tool = new OpenApiTool() {
-                @Override
-                public String getToolDescriptionJsonString() {
-                    return toolJson;
-                }
-
-                @Override
-                public String execute(String paramsJsonString) {
-                    // В ручном режиме не вызывается: аргументы забирает веб-часть из ответа.
-                    return "ok";
-                }
-            };
-            ConversationConfig config = new ConversationConfig(
-                    Contents.Companion.of(systemPrompt),
-                    Collections.emptyList(),
-                    Collections.singletonList(ToolKt.tool(tool)),
-                    new SamplerConfig(TOP_K, TOP_P, TEMPERATURE, SEED),
-                    false,
-                    null,
-                    Collections.emptyMap(),
-                    null,
-                    // Промпт и инструмент читаются при создании разговора отдельным ходом prefill:
-                    // так в журнале видно отдельно время промпта и время хода со звуком.
-                    true,
-                    MAX_OUTPUT_TOKENS,
-                    new ThinkingConfig(false, -1));
             List<Content> contents = new ArrayList<>();
 
             contents.add(new Content.AudioFile(audioPath));
@@ -622,34 +679,116 @@ public class VoicePlugin extends Plugin {
                 contents.add(new Content.Text(userText));
             }
 
+            // База другого дня (таймер в фоне не успел) — перечитать сейчас; время входит в conversationMs.
+            prepared.put("baseRebuilt", ensureBase("перед нажатием"));
+
+            Conversation ready;
+            JSObject info;
+
+            synchronized (ENGINE_LOCK) {
+                ready = base;
+                info = baseInfo;
+            }
+
+            prepared.put("base", info);
+
+            Conversation conversation = null;
+
+            if (ready != null) {
+                long cloneStart = SystemClock.elapsedRealtime();
+
+                try {
+                    conversation = ready.clone();
+                    prepared.put("mode", "clone");
+                    prepared.put("cloneMs", SystemClock.elapsedRealtime() - cloneStart);
+                } catch (Throwable error) {
+                    // Копия не удалась — новый разговор, как до базы; причина — в журнал.
+                    Log.w(TAG, "clone() не удался, создаю разговор заново", error);
+                    prepared.put("cloneError", Log.getStackTraceString(error));
+                }
+            }
+
+            if (conversation == null) {
+                conversation = current.createConversation(conversationConfig(systemPrompt, toolJson));
+                prepared.put("mode", "fresh");
+            }
+
             Message reply;
             long createdAt;
             long doneAt;
+            long roundsMs = 0;
+            int calls;
+            JSArray messages = new JSArray();
+            JSArray rounds = new JSArray();
 
-            try (Conversation conversation = current.createConversation(config)) {
+            try (Conversation turn = conversation) {
                 createdAt = SystemClock.elapsedRealtime();
                 timing.put("conversationMs", createdAt - startedAt);
-                timing.put("preface", benchmarkJson(conversation));
-                reply = conversation.sendMessage(Contents.Companion.of(contents));
+
+                if ("fresh".equals(prepared.optString("mode"))) {
+                    timing.put("preface", benchmarkJson(turn));
+                }
+
+                reply = turn.sendMessage(Contents.Companion.of(contents));
                 doneAt = SystemClock.elapsedRealtime();
-                timing.put("turn", benchmarkJson(conversation));
+                timing.put("turn", benchmarkJson(turn));
+                messages.put(messageJson(reply));
+                calls = reply.getToolCalls().size();
+
+                // Gemma 4 после вызова ждёт ответа инструмента: на ответ она вызывает инструмент для
+                // следующей задачи фразы или отвечает текстом. Отказ хода (например, переполнение
+                // окна на длинной записи) не теряет уже полученные вызовы.
+                Message last = reply;
+
+                while (!last.getToolCalls().isEmpty() && rounds.length() < MAX_TOOL_ROUNDS) {
+                    List<Content> responses = new ArrayList<>();
+
+                    for (ToolCall toolCall : last.getToolCalls()) {
+                        responses.add(new Content.ToolResponse(toolCall.getName(), toolResponse));
+                    }
+
+                    long roundStart = SystemClock.elapsedRealtime();
+                    JSObject round = new JSObject();
+
+                    rounds.put(round);
+
+                    try {
+                        last = turn.sendMessage(Message.Companion.tool(Contents.Companion.of(responses)));
+                    } catch (Throwable error) {
+                        Log.w(TAG, "ход с ответом инструмента не удался", error);
+                        round.put("ms", SystemClock.elapsedRealtime() - roundStart);
+                        round.put("error", Log.getStackTraceString(error));
+                        roundsMs += SystemClock.elapsedRealtime() - roundStart;
+
+                        break;
+                    }
+
+                    round.put("ms", SystemClock.elapsedRealtime() - roundStart);
+                    round.put("bench", benchmarkJson(turn));
+                    roundsMs += SystemClock.elapsedRealtime() - roundStart;
+                    messages.put(messageJson(last));
+                    calls += last.getToolCalls().size();
+                }
             }
 
-            summarizeTiming(timing, createdAt - startedAt, doneAt - createdAt);
+            timing.put("rounds", rounds);
+            timing.put("toolRoundsMs", roundsMs);
+            summarizeTiming(timing, createdAt - startedAt, doneAt - createdAt, roundsMs);
 
             JSObject result = new JSObject();
-            JSArray messages = new JSArray();
 
-            messages.put(messageJson(reply));
             result.put("messages", messages);
             result.put("backend", backend);
             result.put("waitMs", startedAt - queuedAt);
             result.put("conversationMs", createdAt - startedAt);
             result.put("inferenceMs", doneAt - createdAt);
-            result.put("config", modelConfigJson(backend));
+            result.put("toolRoundsMs", roundsMs);
+            result.put("conversation", prepared);
+            result.put("config", modelConfigJson(backend, device, mtp));
             result.put("timing", timing);
-            Log.i(TAG, "ответ модели за " + (doneAt - createdAt) + " мс (" + backend + "), вызовов: "
-                    + reply.getToolCalls().size() + ", текст: " + textOf(reply) + ", замеры: " + timing);
+            Log.i(TAG, "ответ модели за " + (doneAt - createdAt) + " + " + roundsMs + " мс (" + backend + ", MTP "
+                    + mtp + ", " + prepared.optString("mode") + "), ходов: " + (1 + rounds.length()) + ", вызовов: "
+                    + calls + ", замеры: " + timing);
             call.resolve(result);
         } catch (Throwable error) {
             Log.e(TAG, "ошибка модели", error);
@@ -657,14 +796,132 @@ public class VoicePlugin extends Plugin {
             // Параметры, с которыми вызывалась модель, — в журнал и при отказе, а не только при успехе.
             JSObject data = stackData(error);
 
-            data.put("config", modelConfigJson(backend));
+            data.put("config", modelConfigJson(backend, device, mtp));
+            data.put("conversation", prepared);
             data.put("timing", timing);
             call.reject("Ошибка модели: " + error, null, error instanceof Exception ? (Exception) error : null, data);
         }
     }
 
+    /**
+     * Настройки разговора нажатия и базового: промпт и инструмент (ручной режим), жадный сэмплер,
+     * без размышления. Промпт с инструментом читаются при создании разговора отдельным ходом
+     * prefill ({@code prefillPrefaceOnInit}): так база готова к копированию, а в журнале видно
+     * отдельно время промпта и время хода со звуком.
+     */
+    private static ConversationConfig conversationConfig(String systemPrompt, String toolJson) {
+        OpenApiTool tool = new OpenApiTool() {
+            @Override
+            public String getToolDescriptionJsonString() {
+                return toolJson;
+            }
+
+            @Override
+            public String execute(String paramsJsonString) {
+                // В ручном режиме не вызывается: аргументы забирает веб-часть из ответа.
+                return "ok";
+            }
+        };
+
+        return new ConversationConfig(
+                Contents.Companion.of(systemPrompt),
+                Collections.emptyList(),
+                Collections.singletonList(ToolKt.tool(tool)),
+                new SamplerConfig(TOP_K, TOP_P, TEMPERATURE, SEED),
+                false,
+                null,
+                Collections.emptyMap(),
+                null,
+                true,
+                MAX_OUTPUT_TOKENS,
+                new ThinkingConfig(false, -1));
+    }
+
+    /** Совпадает ли прочитанная база с нужной. Под ENGINE_LOCK. */
+    private static boolean baseIsWanted() {
+        return wantedBasePrompt == null
+                || (wantedBasePrompt.equals(basePrompt) && wantedBaseTool.equals(baseTool));
+    }
+
+    /**
+     * Читает нужный базовый промпт в новый базовый разговор, если прочитан другой или никакой
+     * (только в фоновом потоке). Возвращает, была ли попытка чтения. Ошибка не бросается:
+     * базы нет, причина — в {@code baseInfo.error}, нажатие создаст разговор само.
+     */
+    private static boolean ensureBase(String reason) {
+        Engine current;
+        String prompt;
+        String tool;
+
+        synchronized (ENGINE_LOCK) {
+            current = READY.equals(engineState) ? engine : null;
+            prompt = wantedBasePrompt;
+            tool = wantedBaseTool;
+
+            if (current == null || baseIsWanted()) {
+                return false;
+            }
+        }
+
+        closeBase();
+
+        long startedAt = SystemClock.elapsedRealtime();
+        JSObject info = new JSObject();
+
+        info.put("reason", reason);
+        info.put("at", timestamp());
+
+        try {
+            Conversation created = current.createConversation(conversationConfig(prompt, tool));
+
+            info.put("prefillMs", SystemClock.elapsedRealtime() - startedAt);
+            info.put("preface", benchmarkJson(created));
+
+            synchronized (ENGINE_LOCK) {
+                base = created;
+                basePrompt = prompt;
+                baseTool = tool;
+                baseInfo = info;
+            }
+
+            Log.i(TAG, "базовый промпт прочитан за " + info.optLong("prefillMs") + " мс (" + reason + "): "
+                    + info.optJSONObject("preface"));
+        } catch (Throwable error) {
+            Log.e(TAG, "базовый промпт не прочитан (" + reason + ")", error);
+            info.put("failedAfterMs", SystemClock.elapsedRealtime() - startedAt);
+            info.put("error", Log.getStackTraceString(error));
+
+            synchronized (ENGINE_LOCK) {
+                baseInfo = info;
+            }
+        }
+
+        return true;
+    }
+
+    /** Закрывает базовый разговор (в фоновом потоке, до закрытия движка). */
+    private static void closeBase() {
+        Conversation previous;
+
+        synchronized (ENGINE_LOCK) {
+            previous = base;
+            base = null;
+            basePrompt = null;
+            baseTool = null;
+            baseInfo = null;
+        }
+
+        if (previous != null) {
+            try {
+                previous.close();
+            } catch (Throwable error) {
+                Log.w(TAG, "не удалось закрыть базовый разговор", error);
+            }
+        }
+    }
+
     /** Параметры движка и разговора — в журнал каждого нажатия. */
-    private static JSObject modelConfigJson(String backend) {
+    private static JSObject modelConfigJson(String backend, String device, String mtp) {
         JSObject sampler = new JSObject();
 
         sampler.put("topK", TOP_K);
@@ -675,6 +932,8 @@ public class VoicePlugin extends Plugin {
         JSObject config = new JSObject();
 
         config.put("backend", backend);
+        config.put("device", device);
+        config.put("mtp", mtp);
         config.put("audioBackend", "CPU");
         config.put("maxNumTokens", MAX_NUM_TOKENS);
         config.put("maxOutputTokens", MAX_OUTPUT_TOKENS);
@@ -719,13 +978,15 @@ public class VoicePlugin extends Plugin {
     }
 
     /**
-     * Загрузка в фоновом потоке: сначала GPU для текстовой части, при отказе — CPU. Звук — всегда CPU.
-     * После загрузки — прогрев одним коротким текстовым запросом: GPU может загрузиться и отказать
-     * только на первом запросе (на эмуляторе без OpenCL: initialize прошёл через WebGPU, а запрос
-     * упал с «Can not find OpenCL library on this device»). Отказ прогрева на GPU — откат на CPU,
-     * а первое нажатие не тратит время на компиляцию ядер.
+     * Загрузка в фоновом потоке на выбранном устройстве {@code device}: сначала с MTP-драфтером
+     * (speculative decoding, режим ON), при отказе — без него; если и так не вышло на GPU — то же
+     * на CPU. Звук — всегда CPU. После загрузки — прогрев коротким текстовым запросом: GPU может
+     * загрузиться и отказать только на первом запросе (на эмуляторе без OpenCL: initialize прошёл
+     * через WebGPU, а запрос упал с «Can not find OpenCL library on this device»), драфтер — на
+     * первом шаге декода. Отказ прогрева — следующая попытка, а первое нажатие не тратит время на
+     * компиляцию ядер. Затем — чтение базового промпта, если он уже известен.
      */
-    private static void loadEngine(Context context, String path) {
+    private static void loadEngine(Context context, String path, String device, int generation) {
         closeEngine();
 
         // Замеры движка (BenchmarkInfo): флаг читается при создании Engine. Вход и остановка
@@ -745,67 +1006,70 @@ public class VoicePlugin extends Plugin {
         }
 
         long startedAt = SystemClock.elapsedRealtime();
-        String gpuError = null;
-        String cpuError = null;
         Engine loaded = null;
         String backend = null;
+        boolean mtp = false;
+        String lastError = null;
         JSONObject stages = new JSONObject();
-
+        // Ошибки попыток: gpuMtpError, gpuError, cpuMtpError, cpuError; не было попытки или отказа — null.
+        JSONObject errors = new JSONObject();
         long warmUpMs = 0;
+        String[] backends = CPU.equals(device) ? new String[] { CPU } : new String[] { GPU, CPU };
 
-        long gpuStart = SystemClock.elapsedRealtime();
+        attempts:
+        for (String candidate : backends) {
+            for (boolean withMtp : new boolean[] { true, false }) {
+                // Префикс этапов и ошибки попытки: gpuMtp, gpu, cpuMtp, cpu.
+                String prefix = candidate.toLowerCase(Locale.ROOT) + (withMtp ? "Mtp" : "");
+                long attemptStart = SystemClock.elapsedRealtime();
 
-        try {
-            loaded = initialize(new EngineConfig(path, new Backend.GPU(), null, new Backend.CPU(), MAX_NUM_TOKENS, null, cacheDir));
-            stages.put("gpuInitializeMs", SystemClock.elapsedRealtime() - gpuStart);
-            warmUpMs = warmUp(loaded, stages, "gpu");
-            backend = "GPU";
-        } catch (Throwable error) {
-            gpuError = Log.getStackTraceString(error);
-            putQuietly(stages, "gpuFailedAfterMs", SystemClock.elapsedRealtime() - gpuStart);
-            Log.w(TAG, "GPU не подошёл, пробую CPU", error);
-            closeQuietly(loaded);
-            loaded = null;
-        }
+                try {
+                    loaded = initialize(new EngineConfig(path, GPU.equals(candidate) ? new Backend.GPU() : new Backend.CPU(),
+                            null, new Backend.CPU(), MAX_NUM_TOKENS, null, cacheDir, null,
+                            new SpeculativeDecodingConfig(withMtp ? SpeculativeDecodingMode.ON : SpeculativeDecodingMode.OFF)));
+                    stages.put(prefix + "InitializeMs", SystemClock.elapsedRealtime() - attemptStart);
+                    warmUpMs = warmUp(loaded, stages, prefix);
+                    backend = candidate;
+                    mtp = withMtp;
 
-        if (loaded == null) {
-            try {
-                long cpuStart = SystemClock.elapsedRealtime();
-
-                loaded = initialize(new EngineConfig(path, new Backend.CPU(), null, new Backend.CPU(), MAX_NUM_TOKENS, null, cacheDir));
-                stages.put("cpuInitializeMs", SystemClock.elapsedRealtime() - cpuStart);
-                warmUpMs = warmUp(loaded, stages, "cpu");
-                backend = "CPU";
-            } catch (Throwable error) {
-                cpuError = Log.getStackTraceString(error);
-                Log.e(TAG, "модель не загрузилась", error);
-                closeQuietly(loaded);
-                loaded = null;
+                    break attempts;
+                } catch (Throwable error) {
+                    lastError = Log.getStackTraceString(error);
+                    putQuietly(errors, prefix + "Error", lastError);
+                    putQuietly(stages, prefix + "FailedAfterMs", SystemClock.elapsedRealtime() - attemptStart);
+                    Log.w(TAG, "не загрузилось: " + candidate + (withMtp ? " с MTP" : " без MTP"), error);
+                    closeQuietly(loaded);
+                    loaded = null;
+                }
             }
         }
 
         long loadMs = SystemClock.elapsedRealtime() - startedAt;
+        boolean accepted;
 
         synchronized (ENGINE_LOCK) {
-            boolean wanted = LOADING.equals(engineState) && path.endsWith("/" + engineFile);
+            // Пока грузилось, могли удалить модель или выбрать другое устройство.
+            boolean wanted = generation == loadGeneration && LOADING.equals(engineState);
 
-            if (loaded != null && wanted) {
+            accepted = loaded != null && wanted;
+
+            if (accepted) {
                 engine = loaded;
                 engineState = READY;
                 engineBackend = backend;
+                engineMtp = mtp ? "ON" : "OFF";
                 engineLoadMs = loadMs;
             } else if (loaded != null) {
-                // Пока грузилось, модель удалили: держать её незачем.
                 loaded.close();
             } else if (wanted) {
                 engineState = ERROR;
                 // Для сообщения — первая строка (класс и текст), стек целиком — в записи журнала.
-                engineError = cpuError.split("\n", 2)[0];
+                engineError = lastError == null ? "неизвестная ошибка" : lastError.split("\n", 2)[0];
             }
         }
 
-        Log.i(TAG, "загрузка модели: " + (backend == null ? "ошибка" : backend) + " за " + loadMs + " мс, прогрев "
-                + warmUpMs + " мс");
+        Log.i(TAG, "загрузка модели: " + (backend == null ? "ошибка" : backend + (mtp ? " с MTP" : " без MTP"))
+                + " за " + loadMs + " мс, прогрев " + warmUpMs + " мс" + (accepted ? "" : ", не нужна"));
 
         try {
             JSONObject entry = new JSONObject();
@@ -813,19 +1077,28 @@ public class VoicePlugin extends Plugin {
             entry.put("kind", "engine");
             entry.put("at", timestamp());
             entry.put("model", modelName);
+            entry.put("device", device);
             entry.put("cacheFilesBefore", cached == null ? 0 : cached.length);
             entry.put("cacheBytesBefore", cachedBytes);
             entry.put("backend", backend == null ? JSONObject.NULL : backend);
+            entry.put("mtp", backend == null ? JSONObject.NULL : (mtp ? "ON" : "OFF"));
             entry.put("audioBackend", "CPU");
             entry.put("maxNumTokens", MAX_NUM_TOKENS);
             entry.put("loadMs", loadMs);
             entry.put("warmUpMs", warmUpMs);
             entry.put("stages", stages);
-            entry.put("gpuError", gpuError == null ? JSONObject.NULL : gpuError);
-            entry.put("cpuError", cpuError == null ? JSONObject.NULL : cpuError);
+
+            for (String key : new String[] { "gpuMtpError", "gpuError", "cpuMtpError", "cpuError" }) {
+                entry.put(key, errors.has(key) ? errors.get(key) : JSONObject.NULL);
+            }
+
             appendLog(context, entry.toString(), false);
         } catch (Exception error) {
             Log.e(TAG, "не удалось записать загрузку модели в журнал", error);
+        }
+
+        if (accepted) {
+            ensureBase("после загрузки модели");
         }
     }
 
@@ -845,7 +1118,7 @@ public class VoicePlugin extends Plugin {
                 Collections.emptyMap(),
                 null,
                 false,
-                1,
+                WARM_UP_OUTPUT_TOKENS,
                 new ThinkingConfig(false, -1));
 
         try (Conversation conversation = loaded.createConversation(config)) {
@@ -894,8 +1167,8 @@ public class VoicePlugin extends Plugin {
         return json;
     }
 
-    /** Число в сведения о загрузке; ключ строковый и непустой — JSONException тут невозможен. */
-    private static void putQuietly(JSONObject target, String key, long value) {
+    /** Значение в сведения о загрузке; ключ строковый и непустой — JSONException тут невозможен. */
+    private static void putQuietly(JSONObject target, String key, Object value) {
         try {
             target.put(key, value);
         } catch (org.json.JSONException error) {
@@ -904,7 +1177,7 @@ public class VoicePlugin extends Plugin {
     }
 
     /** Сводка по замерам хода (арифметика — {@link ModelTiming}); нет замера хода — сводки нет. */
-    private static void summarizeTiming(JSObject timing, long conversationMs, long inferenceMs) {
+    private static void summarizeTiming(JSObject timing, long conversationMs, long inferenceMs, long roundsMs) {
         JSONObject turn = timing.optJSONObject("turn");
 
         if (turn == null || turn.has("error")) {
@@ -918,7 +1191,8 @@ public class VoicePlugin extends Plugin {
                 marks == null ? 0 : marks.optLong("audio_executor", 0),
                 turn.optLong("prefillMs", 0),
                 turn.optLong("decodeMs", 0),
-                turn.optInt("decodeTokens", 0));
+                turn.optInt("decodeTokens", 0),
+                roundsMs);
 
         timing.put("audioEncodeMs", summary.audioEncodeMs);
         timing.put("turnPrefillMs", summary.turnPrefillMs);
@@ -957,12 +1231,16 @@ public class VoicePlugin extends Plugin {
     }
 
     private static void closeEngine() {
+        // Разговор закрывается раньше движка, которому он принадлежит.
+        closeBase();
+
         Engine previous;
 
         synchronized (ENGINE_LOCK) {
             previous = engine;
             engine = null;
             engineBackend = null;
+            engineMtp = null;
             engineLoadMs = 0;
         }
 
@@ -977,6 +1255,7 @@ public class VoicePlugin extends Plugin {
 
         status.put("state", engineState);
         status.put("backend", engineBackend);
+        status.put("mtp", engineMtp);
         status.put("loadMs", engineLoadMs);
         status.put("error", engineError);
 

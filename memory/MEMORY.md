@@ -74,3 +74,4 @@ type: project
 - [progress_voice_speed.md](progress_voice_speed.md), [findings_skeptic_voice_speed.md](findings_skeptic_voice_speed.md) — разбивка времени ответа модели в журнале и ночное правило (Р-38): журнал реализации, ревью Ск-1…Ск-11.
 - [findings_voice_speed_host.md](findings_voice_speed_host.md) — замеры скорости на компьютере на записях владельца: состав запроса по токенам, MTP, кэш 2048, общий префикс промпта; 5,9 → 1,5 с на хосте.
 - [findings_voice_phone_log_2.md](findings_voice_phone_log_2.md) — журнал №2 с телефона (APK 7): разбивка на GPU — промпт 3,8 с, генерация 5–6 с при 9 ток/с, звук 0,8 с; загрузка с кэшем 8,9 с.
+- [progress_voice_speedup.md](progress_voice_speedup.md), [findings_skeptic_voice_speedup.md](findings_skeptic_voice_speedup.md) — ускорение APK 8 (промпт один раз + clone, MTP, окно 2048, выбор GPU/CPU, несколько задач, ночное «сегодня»): журнал реализации, ревью У-1…У-11.

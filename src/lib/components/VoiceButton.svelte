@@ -18,17 +18,20 @@
    */
   import { showToast } from '../toast.svelte';
   import type { NewTask } from '../tasks/types';
-  import { loadVoiceModel } from '../voice-models';
+  import { loadVoiceDevice, loadVoiceModel } from '../voice-models';
   import {
     ADD_TASK_TOOL,
     MAX_RECORD_MS,
     MIN_PEAK,
     MIN_PRESS_MS,
-    USER_TEXT,
+    TOOL_RESPONSE,
     VOICE_MESSAGES,
-    buildSystemPrompt,
+    buildBasePrompt,
+    buildPressMessage,
     formatTimestamp,
     interpretReply,
+    nextPromptDayChange,
+    promptDayKey,
     recordingProblem,
   } from '../voice-command';
   import {
@@ -40,7 +43,7 @@
     stopRecording,
     writeVoiceLog,
   } from '../voice';
-  import type { EngineStatus } from '../voice';
+  import type { BasePrompt, EngineStatus } from '../voice';
 
   interface Props {
     /** Сохранение задачи — то же, что у формы создания на экране календаря. */
@@ -51,6 +54,9 @@
 
   /** Период опроса, пока модель загружается, мс. */
   const POLL_MS = 1000;
+
+  /** Запас после границы дня промпта, чтобы часы уже показывали новый день, мс. */
+  const DAY_CHANGE_DELAY_MS = 1000;
 
   const available = isVoiceAvailable();
 
@@ -80,11 +86,21 @@
             : 'Голосовая команда: удерживайте и говорите',
   );
 
+  /** Базовый промпт дня на момент `now`: его плагин читает один раз и копирует на нажатие. */
+  function basePrompt(now: Date, timeZone: string): BasePrompt {
+    return { systemPrompt: buildBasePrompt(now, timeZone), tool: JSON.stringify(ADD_TASK_TOOL) };
+  }
+
+  /** Загрузка модели и, если день промпта сменился, перечитывание базы — оба в фоне. */
   async function refreshEngine(): Promise<void> {
     try {
-      engine = await loadVoiceEngine(loadVoiceModel());
+      engine = await loadVoiceEngine(
+        loadVoiceModel(),
+        loadVoiceDevice(),
+        basePrompt(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone),
+      );
     } catch (error: unknown) {
-      engine = { state: 'error', backend: null, loadMs: 0, error: errorText(error) };
+      engine = { state: 'error', backend: null, mtp: null, loadMs: 0, error: errorText(error) };
     }
   }
 
@@ -103,6 +119,29 @@
     const timer = setInterval(() => void refreshEngine(), POLL_MS);
 
     return () => clearInterval(timer);
+  });
+
+  // Базовый промпт меняется на границах дня промпта (00:00 и 04:00): к границе — перечитать его
+  // заранее, а не на нажатии. Если таймер в фоне не сработал, это сделают возвращение
+  // в приложение (handleVisibilityChange) или само нажатие.
+  $effect(() => {
+    if (!available) {
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = (): void => {
+      const delay = nextPromptDayChange(new Date()).getTime() - Date.now() + DAY_CHANGE_DELAY_MS;
+
+      timer = setTimeout(() => {
+        void refreshEngine();
+        schedule();
+      }, delay);
+    };
+
+    schedule();
+
+    return () => clearTimeout(timer);
   });
 
   function errorText(error: unknown): string {
@@ -143,12 +182,16 @@
       mark = now;
     };
     const model = loadVoiceModel();
+    const device = loadVoiceDevice();
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const base = basePrompt(pressedAt, timeZone);
     // kind — первым полем: по нему нативная часть считает нажатия при ротации журнала.
     const entry: { kind: 'press' } & Record<string, unknown> = {
       kind: 'press',
       at: formatTimestamp(pressedAt),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timeZone,
       model: model.fileName,
+      device,
       thresholds: { minPressMs: MIN_PRESS_MS, minPeak: MIN_PEAK },
       steps,
     };
@@ -158,7 +201,7 @@
     phase = 'starting';
 
     try {
-      engine = await loadVoiceEngine(model);
+      engine = await loadVoiceEngine(model, device, base);
       entry.engine = engine;
       step('engineMs');
 
@@ -209,12 +252,13 @@
 
       const request = {
         audioPath: audio.path,
-        systemPrompt: buildSystemPrompt(pressedAt, String(entry.timeZone)),
-        userText: USER_TEXT,
-        tool: JSON.stringify(ADD_TASK_TOOL),
+        systemPrompt: base.systemPrompt,
+        userText: buildPressMessage(pressedAt),
+        tool: base.tool,
+        toolResponse: TOOL_RESPONSE,
       };
 
-      entry.request = { ...request, tool: ADD_TASK_TOOL };
+      entry.request = { ...request, tool: ADD_TASK_TOOL, baseKey: promptDayKey(pressedAt) };
 
       const { raw, reply } = await runModel(request);
 
@@ -223,17 +267,25 @@
 
       const result = interpretReply(reply.messages, pressedAt);
 
+      entry.rejected = result.rejected;
+
       if (!result.ok) {
-        entry.rawArgs = result.rawArgs;
         throw new VoiceError(result.error);
       }
 
-      entry.args = result.args;
-      entry.chrono = result.chrono;
+      entry.accepted = result.accepted.map(({ args, chrono }) => ({ args, chrono }));
       step('interpretMs');
 
-      await onCreate(result.task);
-      entry.task = result.task;
+      // Задачи из одной фразы — по очереди, тем же путём, что из формы; в журнал — сохранённые.
+      const saved: NewTask[] = [];
+
+      entry.tasks = saved;
+
+      for (const { task } of result.accepted) {
+        await onCreate(task);
+        saved.push(task);
+      }
+
       step('saveMs');
 
       entry.toast = { type: 'success', text: result.toast };
@@ -291,10 +343,16 @@
     begin();
   }
 
-  /** Сворачивание во время записи — как отпускание: в фоне микрофон отдаёт тишину. */
+  /**
+   * Сворачивание во время записи — как отпускание: в фоне микрофон отдаёт тишину. Возвращение
+   * в приложение — проверка модели и базового промпта: пока приложение было в фоне, мог
+   * смениться день промпта.
+   */
   function handleVisibilityChange(): void {
     if (document.visibilityState === 'hidden') {
       end();
+    } else if (available) {
+      void refreshEngine();
     }
   }
 

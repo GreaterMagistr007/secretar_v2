@@ -4,9 +4,10 @@ package io.github.greatermagistr007.secretar;
  * Сводка времени ответа модели на нажатие по замерам LiteRT-LM (решение Р-38). Чистая логика
  * без Android и JSON, покрыта JUnit-тестами; JSON для журнала собирает VoicePlugin.
  *
- * Разговор создаётся на нажатие с {@code prefillPrefaceOnInit}: {@code conversationMs} — чтение
- * промпта, {@code inferenceMs} — {@code sendMessage}: аудиоэнкодер, prefill хода (звук, текст,
- * шаблон), декод и прочее.
+ * {@code conversationMs} — подготовка разговора нажатия: копия базового разговора с уже
+ * прочитанным промптом ({@code clone()}), а если базу пришлось перечитать или копия не удалась —
+ * вместе с чтением промпта; {@code inferenceMs} — {@code sendMessage}: аудиоэнкодер, prefill хода
+ * (звук, текст, шаблон), декод и прочее.
  */
 final class ModelTiming {
 
@@ -20,7 +21,7 @@ final class ModelTiming {
     final long decodeMs;
 
     /**
-     * До первого токена ответа от начала работы модели над нажатием: чтение промпта + звук +
+     * До первого токена ответа от начала работы модели над нажатием: подготовка разговора + звук +
      * prefill хода + один токен декода. Без ожидания очереди и без записи WAV.
      */
     final long firstTokenMs;
@@ -28,7 +29,10 @@ final class ModelTiming {
     /** Остаток {@code sendMessage}: чтение WAV и спектрограмма, шаблон и токенизация хода, разбор ответа, JNI. */
     final long otherMs;
 
-    /** Ответ модели целиком: чтение промпта + {@code sendMessage}. */
+    /**
+     * Ответ модели целиком: подготовка разговора + первый {@code sendMessage} + дополнительные ходы
+     * с ответом инструмента (следующие задачи фразы и итоговое «Готово»).
+     */
     final long modelTotalMs;
 
     private ModelTiming(long audioEncodeMs, long turnPrefillMs, long decodeMs, long firstTokenMs, long otherMs,
@@ -42,11 +46,12 @@ final class ModelTiming {
     }
 
     /**
-     * Сводка по замерам. Отрицательные значения (замер не пришёл) считаются нулём; без токенов
-     * декода в первый токен декод не входит.
+     * Сводка по замерам первого хода ({@code inferenceMs} — первый {@code sendMessage}) и времени
+     * дополнительных ходов {@code roundsMs}. Отрицательные значения (замер не пришёл) считаются
+     * нулём; без токенов декода в первый токен декод не входит.
      */
     static ModelTiming of(long conversationMs, long inferenceMs, long audioMs, long prefillMs, long decodeMs,
-            int decodeTokens) {
+            int decodeTokens, long roundsMs) {
         long audio = Math.max(0, audioMs);
         long prefill = Math.max(0, prefillMs);
         long decode = Math.max(0, decodeMs);
@@ -58,7 +63,7 @@ final class ModelTiming {
                 decode,
                 conversationMs + audio + prefill + firstDecodeToken,
                 inferenceMs - audio - prefill - decode,
-                conversationMs + inferenceMs);
+                conversationMs + inferenceMs + Math.max(0, roundsMs));
     }
 
     /** Время хода по числу токенов и скорости, мс; 0 — ход не записан. */

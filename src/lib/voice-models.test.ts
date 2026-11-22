@@ -1,15 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  VOICE_DEVICES,
   VOICE_MODELS,
   downloadPercent,
   findVoiceModel,
   formatGigabytes,
   formatMegabytes,
   loadServerAddress,
+  loadVoiceDevice,
   loadVoiceModel,
   modelFileUrl,
   normalizeServerAddress,
   saveServerAddress,
+  saveVoiceDevice,
   saveVoiceModel,
 } from './voice-models';
 import type { VoiceModel } from './voice-models';
@@ -193,6 +196,44 @@ describe('запоминание выбора модели и адреса', () 
     expect(loadServerAddress()).toBe('');
     expect(() => saveVoiceModel(VOICE_MODELS[0])).not.toThrow();
     expect(() => saveServerAddress('x')).not.toThrow();
+  });
+});
+
+describe('устройство для модели', () => {
+  it('два устройства, первое — видеоускоритель', () => {
+    expect(VOICE_DEVICES.map((device) => device.id)).toEqual(['GPU', 'CPU']);
+    expect(VOICE_DEVICES.map((device) => device.title)).toEqual(['Видеоускоритель (GPU)', 'Процессор (CPU)']);
+  });
+
+  it('без сохранённого выбора — GPU', () => {
+    stubStorage();
+
+    expect(loadVoiceDevice()).toBe('GPU');
+  });
+
+  it('сохраняет и читает выбор', () => {
+    const data = stubStorage();
+
+    saveVoiceDevice('CPU');
+
+    expect(data.get('secretar.voice.device')).toBe('CPU');
+    expect(loadVoiceDevice()).toBe('CPU');
+    saveVoiceDevice('GPU');
+    expect(loadVoiceDevice()).toBe('GPU');
+  });
+
+  it('неизвестное значение (в том числе в другом регистре) — GPU', () => {
+    stubStorage({ 'secretar.voice.device': 'NPU' });
+    expect(loadVoiceDevice()).toBe('GPU');
+    stubStorage({ 'secretar.voice.device': 'cpu' });
+    expect(loadVoiceDevice()).toBe('GPU');
+  });
+
+  it('недоступное хранилище: чтение — GPU, запись не бросает', () => {
+    stubBrokenStorage();
+
+    expect(loadVoiceDevice()).toBe('GPU');
+    expect(() => saveVoiceDevice('CPU')).not.toThrow();
   });
 });
 

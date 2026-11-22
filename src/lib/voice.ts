@@ -9,7 +9,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { PermissionState } from '@capacitor/core';
 import type { ModelMessage, ModelToolCall } from './voice-command';
-import type { VoiceModel } from './voice-models';
+import type { VoiceDevice, VoiceModel } from './voice-models';
 
 /** Состояние модели в памяти приложения. */
 export type EngineState = 'absent' | 'loading' | 'ready' | 'error';
@@ -18,6 +18,8 @@ export interface EngineStatus {
   state: EngineState;
   /** На чём работает текстовая часть: GPU или CPU; null — не загружена. */
   backend: string | null;
+  /** Режим MTP-драфтера загруженной модели: ON или OFF (откат); null — не загружена. */
+  mtp: string | null;
   loadMs: number;
   error: string | null;
 }
@@ -46,13 +48,26 @@ export interface Recording {
   truncated: boolean;
 }
 
+/**
+ * Базовый разговор: системный промпт дня и описание инструмента JSON-строкой. Плагин читает их
+ * один раз и на нажатие копирует готовый разговор, пока текст не изменится.
+ */
+export interface BasePrompt {
+  systemPrompt: string;
+  tool: string;
+}
+
 /** Что отдаётся модели на нажатие. */
 export interface ModelRequest {
   audioPath: string;
+  /** Базовый промпт дня; не совпал с прочитанным — плагин перечитает его перед нажатием. */
   systemPrompt: string;
+  /** Сообщение нажатия: время и указание на запись. */
   userText: string;
   /** Описание инструмента JSON-строкой. */
   tool: string;
+  /** Ответ инструмента на каждый вызов: модель вызывает его снова для следующей задачи фразы. */
+  toolResponse: string;
 }
 
 /** Ответ модели и замеры нативной части. */
@@ -68,7 +83,7 @@ export interface ModelReply {
 }
 
 interface VoicePlugin {
-  load(options: { fileName: string; size: number }): Promise<unknown>;
+  load(options: { fileName: string; size: number; device: VoiceDevice } & Partial<BasePrompt>): Promise<unknown>;
   startRecording(): Promise<RecordingStart>;
   stopRecording(): Promise<Recording>;
   process(options: ModelRequest): Promise<unknown>;
@@ -98,6 +113,7 @@ export function parseEngineStatus(raw: unknown): EngineStatus {
     return {
       state: 'error',
       backend: null,
+      mtp: null,
       loadMs: 0,
       error: `Непонятный ответ приложения: ${JSON.stringify(raw) ?? String(raw)}`,
     };
@@ -106,6 +122,7 @@ export function parseEngineStatus(raw: unknown): EngineStatus {
   return {
     state,
     backend: typeof data.backend === 'string' ? data.backend : null,
+    mtp: typeof data.mtp === 'string' ? data.mtp : null,
     loadMs: typeof data.loadMs === 'number' ? data.loadMs : 0,
     error: typeof data.error === 'string' ? data.error : null,
   };
@@ -154,11 +171,17 @@ export function parseModelReply(raw: unknown): ModelReply {
 }
 
 /**
- * Загружает модель в фоне, если она скачана и проверена, и отдаёт состояние. Повторный вызов
- * ничего не перезапускает — им же опрашивается ход загрузки.
+ * Загружает модель в фоне на устройстве `device`, если она скачана и проверена, и отдаёт
+ * состояние. Повторный вызов ничего не перезапускает — им же опрашивается ход загрузки; другое
+ * устройство — перезагрузка в фоне. `base` — базовый промпт дня: плагин прочитает его после
+ * загрузки или, если он изменился, сразу в фоне; без `base` остаётся прежний.
  */
-export async function loadVoiceEngine(model: VoiceModel): Promise<EngineStatus> {
-  return parseEngineStatus(await Voice.load({ fileName: model.fileName, size: model.size }));
+export async function loadVoiceEngine(
+  model: VoiceModel,
+  device: VoiceDevice,
+  base?: BasePrompt,
+): Promise<EngineStatus> {
+  return parseEngineStatus(await Voice.load({ fileName: model.fileName, size: model.size, device, ...base }));
 }
 
 /**

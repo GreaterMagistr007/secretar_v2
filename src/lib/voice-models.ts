@@ -89,6 +89,21 @@ const MODEL_KEY = 'secretar.voice.model';
 /** Ключ хранения адреса сервера раздачи. */
 const SERVER_KEY = 'secretar.voice.server';
 
+/** Ключ хранения устройства для модели. */
+const DEVICE_KEY = 'secretar.voice.device';
+
+/**
+ * На чём работает текстовая часть модели (аудиоэнкодер — всегда процессор). Видеоускоритель —
+ * по умолчанию; процессор — для сравнения на телефоне, где видеоускоритель медленный.
+ */
+export type VoiceDevice = 'GPU' | 'CPU';
+
+/** Устройства для модели в порядке показа; первое — по умолчанию. */
+export const VOICE_DEVICES: readonly { id: VoiceDevice; title: string }[] = [
+  { id: 'GPU', title: 'Видеоускоритель (GPU)' },
+  { id: 'CPU', title: 'Процессор (CPU)' },
+];
+
 /**
  * Читает строку настройки. Недоступное хранилище — как у остальных настроек проекта:
  * настройка действует в текущем сеансе, но не запоминается.
@@ -125,6 +140,15 @@ export function loadServerAddress(): string {
 
 export function saveServerAddress(address: string): void {
   writeSetting(SERVER_KEY, address);
+}
+
+/** Выбранное устройство для модели; без сохранённого или с неизвестным значением — GPU. */
+export function loadVoiceDevice(): VoiceDevice {
+  return VOICE_DEVICES.find((device) => device.id === readSetting(DEVICE_KEY))?.id ?? VOICE_DEVICES[0].id;
+}
+
+export function saveVoiceDevice(device: VoiceDevice): void {
+  writeSetting(DEVICE_KEY, device);
 }
 
 const BYTES_IN_MB = 1_000_000;

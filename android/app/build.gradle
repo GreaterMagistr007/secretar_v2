@@ -12,7 +12,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Растёт на единицу с каждым выданным APK — иначе Android не поставит его поверх прежнего
         // (docs/mechanic_android.md, раздел «Версия»).
-        versionCode 7
+        versionCode 8
         versionName packageJson.version
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // Нативные библиотеки LiteRT-LM — около 22–26 МБ на каждую архитектуру. По умолчанию только

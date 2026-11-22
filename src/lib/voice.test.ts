@@ -64,11 +64,12 @@ describe('isVoiceAvailable', () => {
 
 describe('parseEngineStatus', () => {
   it('каждое известное состояние', () => {
-    expect(parseEngineStatus({ state: 'absent' })).toEqual({ state: 'absent', backend: null, loadMs: 0, error: null });
+    expect(parseEngineStatus({ state: 'absent' })).toEqual({ state: 'absent', backend: null, mtp: null, loadMs: 0, error: null });
     expect(parseEngineStatus({ state: 'loading' })).toMatchObject({ state: 'loading' });
-    expect(parseEngineStatus({ state: 'ready', backend: 'GPU', loadMs: 8123 })).toEqual({
+    expect(parseEngineStatus({ state: 'ready', backend: 'GPU', mtp: 'ON', loadMs: 8123 })).toEqual({
       state: 'ready',
       backend: 'GPU',
+      mtp: 'ON',
       loadMs: 8123,
       error: null,
     });
@@ -76,9 +77,10 @@ describe('parseEngineStatus', () => {
   });
 
   it('поля неверного типа читаются как пустые', () => {
-    expect(parseEngineStatus({ state: 'ready', backend: 1, loadMs: '5', error: {} })).toEqual({
+    expect(parseEngineStatus({ state: 'ready', backend: 1, mtp: true, loadMs: '5', error: {} })).toEqual({
       state: 'ready',
       backend: null,
+      mtp: null,
       loadMs: 0,
       error: null,
     });
@@ -88,6 +90,7 @@ describe('parseEngineStatus', () => {
     expect(parseEngineStatus({ state: 'busy' })).toEqual({
       state: 'error',
       backend: null,
+      mtp: null,
       loadMs: 0,
       error: 'Непонятный ответ приложения: {"state":"busy"}',
     });
@@ -150,16 +153,29 @@ describe('parseModelReply', () => {
 });
 
 describe('мост', () => {
-  it('loadVoiceEngine передаёт имя файла и размер модели', async () => {
+  it('loadVoiceEngine передаёт имя файла, размер модели и устройство; без базы — без её полей', async () => {
     mocks.load.mockResolvedValue({ state: 'loading' });
 
-    expect(await loadVoiceEngine(MODEL)).toMatchObject({ state: 'loading' });
-    expect(mocks.load).toHaveBeenCalledWith({ fileName: 'gemma-4-E2B-it.litertlm', size: 2588147712 });
+    expect(await loadVoiceEngine(MODEL, 'CPU')).toMatchObject({ state: 'loading' });
+    expect(mocks.load).toHaveBeenCalledWith({ fileName: 'gemma-4-E2B-it.litertlm', size: 2588147712, device: 'CPU' });
+  });
+
+  it('loadVoiceEngine с базовым промптом передаёт его текст и инструмент', async () => {
+    mocks.load.mockResolvedValue({ state: 'ready' });
+
+    await loadVoiceEngine(MODEL, 'GPU', { systemPrompt: 'база', tool: '{}' });
+    expect(mocks.load).toHaveBeenCalledWith({
+      fileName: 'gemma-4-E2B-it.litertlm',
+      size: 2588147712,
+      device: 'GPU',
+      systemPrompt: 'база',
+      tool: '{}',
+    });
   });
 
   it('runModel отдаёт и сырой, и разобранный ответ', async () => {
     const raw = { messages: [], backend: 'GPU' };
-    const request = { audioPath: '/a.wav', systemPrompt: 'p', userText: 'u', tool: '{}' };
+    const request = { audioPath: '/a.wav', systemPrompt: 'p', userText: 'u', tool: '{}', toolResponse: 'r' };
 
     mocks.process.mockResolvedValue(raw);
 

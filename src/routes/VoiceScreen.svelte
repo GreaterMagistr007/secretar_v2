@@ -7,6 +7,9 @@
    *
    * Раздел «Журнал» (решение Р-37): сколько нажатий голосовой кнопки записано, выгрузка архива
    * журнала с записями звука через меню «Поделиться» и очистка.
+   *
+   * «Устройство для модели» (только в APK): видеоускоритель или процессор для текстовой части
+   * модели; смена перезагружает модель в фоне.
    */
   import { untrack } from 'svelte';
   import { router } from '../lib/router.svelte';
@@ -20,19 +23,22 @@
   } from '../lib/model-downloader';
   import type { ModelState } from '../lib/model-downloader';
   import {
+    VOICE_DEVICES,
     VOICE_MODELS,
     downloadPercent,
     formatGigabytes,
     formatMegabytes,
     loadServerAddress,
+    loadVoiceDevice,
     loadVoiceModel,
     modelFileUrl,
     normalizeServerAddress,
     saveServerAddress,
+    saveVoiceDevice,
     saveVoiceModel,
   } from '../lib/voice-models';
-  import type { VoiceModel } from '../lib/voice-models';
-  import { clearVoiceLog, shareVoiceLog, voiceLogInfo } from '../lib/voice';
+  import type { VoiceDevice, VoiceModel } from '../lib/voice-models';
+  import { clearVoiceLog, loadVoiceEngine, shareVoiceLog, voiceLogInfo } from '../lib/voice';
 
   /** Период опроса прогресса, мс. */
   const POLL_MS = 1000;
@@ -41,6 +47,7 @@
 
   let model = $state<VoiceModel>(loadVoiceModel());
   let address = $state(loadServerAddress());
+  let device = $state<VoiceDevice>(loadVoiceDevice());
   /** Состояние файла выбранной модели; null — ещё не прочитано или это браузер. */
   let modelState = $state<ModelState | null>(null);
   /** Идёт команда (скачать, отменить, удалить): кнопки недоступны, чтобы не нажать дважды. */
@@ -153,6 +160,21 @@
     saveVoiceModel(next);
     modelState = null;
     void refresh();
+  }
+
+  /**
+   * Смена устройства для модели: выбор запоминается, модель перезагружается в фоне (базовый
+   * промпт плагин помнит с прошлой загрузки). Не скачана — только запоминается.
+   */
+  function selectDevice(next: (typeof VOICE_DEVICES)[number]): Promise<void> {
+    device = next.id;
+    saveVoiceDevice(next.id);
+
+    return run(async () => {
+      if ((await loadVoiceEngine(model, next.id)).state === 'loading') {
+        showToast('success', `Модель перезагружается: ${next.title}`);
+      }
+    });
   }
 
   /** Выполняет команду с блокировкой кнопок; отказ нативной части — во всплывающее сообщение. */
@@ -305,6 +327,22 @@
   {/if}
 
   {#if available}
+    <fieldset class="group">
+      <legend class="label">Устройство для модели</legend>
+      {#each VOICE_DEVICES as item (item.id)}
+        <label class="option">
+          <input
+            type="radio"
+            name="voice-device"
+            checked={item.id === device}
+            disabled={busy}
+            onchange={() => selectDevice(item)}
+          />
+          <span class="option-text">{item.title}</span>
+        </label>
+      {/each}
+    </fieldset>
+
     <section class="group" aria-labelledby="voice-log-title">
       <h2 class="label" id="voice-log-title">Журнал</h2>
       <p class="status">
