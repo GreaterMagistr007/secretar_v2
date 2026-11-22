@@ -38,3 +38,4 @@ dev-dist/
 # Сам каталог в git — через .gitkeep: иначе docker создал бы его от root, и model-download не смог бы писать.
 models/*
 !models/.gitkeep
+memory/tmp_*/

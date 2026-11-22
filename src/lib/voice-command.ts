@@ -82,6 +82,32 @@ export const ADD_TASK_TOOL = {
 /** Текст, который идёт в сообщении пользователя вместе с записью. */
 export const USER_TEXT = 'Команда пользователя — в аудиозаписи.';
 
+/**
+ * Час, до которого ночь ещё относится к прошлому дню (решение Р-38): в 01:58 22 ноября «сегодня» —
+ * 21 ноября, «завтра» — 22 ноября.
+ */
+export const NIGHT_END_HOUR = 4;
+
+/**
+ * Момент, от которого считаются «сегодня», «завтра» и дни недели: до `NIGHT_END_HOUR` — то же время
+ * прошлых суток, иначе сам `now`.
+ */
+export function dayReference(now: Date): Date {
+  if (now.getHours() >= NIGHT_END_HOUR) {
+    return now;
+  }
+
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - 1,
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+    now.getMilliseconds(),
+  );
+}
+
 /** Сколько дней вперёд, кроме сегодняшнего, показать модели в календаре промпта. */
 const CALENDAR_DAYS = 14;
 
@@ -109,30 +135,40 @@ function addDays(date: Date, days: number): Date {
  * Системный промпт на момент нажатия `now`: дата, время, день недели, часовой пояс телефона,
  * календарь на две недели (снимает с модели арифметику дней) и правила разбора.
  *
+ * Ночное правило (решение Р-38): до `NIGHT_END_HOUR` «сегодня» — прошлый календарный день,
+ * календарь, метки и дни недели — от него (`dayReference`); день не назван — ближайший календарный
+ * день, то есть текущая календарная дата, а не прошедшая. Промпт говорит это модели явно.
+ *
  * Правило дня недели: «в понедельник» — ближайший понедельник после сегодняшнего; если сегодня
  * понедельник — через неделю (решение по плану этапа 5, «следующий ближайший»). Сверка
  * `checkDateWithChrono` приводит `chrono-node` к тому же правилу.
  */
 export function buildSystemPrompt(now: Date, timeZone: string): string {
-  const today = toIsoDate(now);
-  const tomorrow = toIsoDate(addDays(now, 1));
-  const afterTomorrow = toIsoDate(addDays(now, 2));
+  const reference = dayReference(now);
+  const night = reference !== now;
+  const today = toIsoDate(reference);
+  const calendarToday = toIsoDate(now);
+  const tomorrow = toIsoDate(addDays(reference, 1));
+  const afterTomorrow = toIsoDate(addDays(reference, 2));
   const labels = ['сегодня', 'завтра', 'послезавтра'];
   const calendar: string[] = [];
 
   for (let offset = 0; offset <= CALENDAR_DAYS; offset += 1) {
-    const day = addDays(now, offset);
+    const day = addDays(reference, offset);
     const label = offset < labels.length ? ` (${labels[offset]})` : '';
 
     calendar.push(`${toIsoDate(day)} — ${WEEKDAYS[day.getDay()]}${label}`);
   }
 
-  const spoken = `${WEEKDAYS[now.getDay()]}, ${formatLongDate(today)}`;
+  const spoken = `${WEEKDAYS[now.getDay()]}, ${formatLongDate(calendarToday)}`;
+  const todayLine = night
+    ? `Сейчас ночь: до ${pad(NIGHT_END_HOUR)}:00 «сегодня» — это ещё вчерашний день, ${WEEKDAYS[reference.getDay()]}, ${formatLongDate(today)} (${today}); «завтра», «послезавтра» и дни недели считай от него.`
+    : `Сегодня — ${today}.`;
 
   return [
     'Ты разбираешь голосовые команды для задачника «Секретарь». В аудиозаписи пользователь по-русски говорит одну фразу — какое дело добавить в список задач и на какой день.',
     '',
-    `Сейчас: ${spoken}, ${clock(now)} (часовой пояс ${timeZone}). Сегодня — ${today}.`,
+    `Сейчас: ${spoken}, ${clock(now)} (часовой пояс ${timeZone}). ${todayLine}`,
     '',
     'Календарь на две недели вперёд:',
     ...calendar,
@@ -140,7 +176,7 @@ export function buildSystemPrompt(now: Date, timeZone: string): string {
     `Если в фразе есть дело, вызови инструмент ${ADD_TASK} один раз. Аргументы:`,
     '- heard — фраза дословно, как ты её услышал, без исправлений и пересказа.',
     '- date — день задачи в формате ГГГГ-ММ-ДД:',
-    `  - день не назван — сегодня, ${today};`,
+    night ? `  - день не назван — ${calendarToday} (ночь: ближайший календарный день);` : `  - день не назван — сегодня, ${today};`,
     `  - «сегодня» — ${today}, «завтра» — ${tomorrow}, «послезавтра» — ${afterTomorrow};`,
     '  - день недели («в понедельник», «в пятницу», «в следующий вторник») — ближайший такой день после сегодняшнего; если сегодня тот же день недели — тот же день следующей недели, через 7 дней;',
     '  - число месяца («25 ноября», «25-го») — ближайшая такая дата не раньше сегодняшней; если месяц не назван и это число в текущем месяце уже прошло — то же число следующего месяца;',
@@ -367,7 +403,8 @@ export function interpretReply(messages: ModelMessage[], now: Date): ReplyResult
   return {
     ok: true,
     args,
-    chrono: checkDateWithChrono(args.heard, args.date, now),
+    // Сверка — от того же сдвинутого ночью момента, что и промпт.
+    chrono: checkDateWithChrono(args.heard, args.date, dayReference(now)),
     task: { text, date: args.date, priority: 'medium', recurrence: 'none' },
     toast: successMessage(text, args.date, toIsoDate(now)),
   };

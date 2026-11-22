@@ -23,12 +23,14 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.google.ai.edge.litertlm.Backend;
+import com.google.ai.edge.litertlm.BenchmarkInfo;
 import com.google.ai.edge.litertlm.Content;
 import com.google.ai.edge.litertlm.Contents;
 import com.google.ai.edge.litertlm.Conversation;
 import com.google.ai.edge.litertlm.ConversationConfig;
 import com.google.ai.edge.litertlm.Engine;
 import com.google.ai.edge.litertlm.EngineConfig;
+import com.google.ai.edge.litertlm.ExperimentalFlags;
 import com.google.ai.edge.litertlm.Message;
 import com.google.ai.edge.litertlm.OpenApiTool;
 import com.google.ai.edge.litertlm.SamplerConfig;
@@ -56,6 +58,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -581,6 +584,9 @@ public class VoicePlugin extends Plugin {
             }
         }
 
+        // Замеры — вне try: при ошибке модели уже собранное (чтение промпта) уходит в журнал.
+        JSObject timing = new JSObject();
+
         try {
             OpenApiTool tool = new OpenApiTool() {
                 @Override
@@ -603,7 +609,9 @@ public class VoicePlugin extends Plugin {
                     null,
                     Collections.emptyMap(),
                     null,
-                    false,
+                    // Промпт и инструмент читаются при создании разговора отдельным ходом prefill:
+                    // так в журнале видно отдельно время промпта и время хода со звуком.
+                    true,
                     MAX_OUTPUT_TOKENS,
                     new ThinkingConfig(false, -1));
             List<Content> contents = new ArrayList<>();
@@ -616,13 +624,19 @@ public class VoicePlugin extends Plugin {
 
             Message reply;
             long createdAt;
+            long doneAt;
 
             try (Conversation conversation = current.createConversation(config)) {
                 createdAt = SystemClock.elapsedRealtime();
+                timing.put("conversationMs", createdAt - startedAt);
+                timing.put("preface", benchmarkJson(conversation));
                 reply = conversation.sendMessage(Contents.Companion.of(contents));
+                doneAt = SystemClock.elapsedRealtime();
+                timing.put("turn", benchmarkJson(conversation));
             }
 
-            long doneAt = SystemClock.elapsedRealtime();
+            summarizeTiming(timing, createdAt - startedAt, doneAt - createdAt);
+
             JSObject result = new JSObject();
             JSArray messages = new JSArray();
 
@@ -633,8 +647,9 @@ public class VoicePlugin extends Plugin {
             result.put("conversationMs", createdAt - startedAt);
             result.put("inferenceMs", doneAt - createdAt);
             result.put("config", modelConfigJson(backend));
+            result.put("timing", timing);
             Log.i(TAG, "ответ модели за " + (doneAt - createdAt) + " мс (" + backend + "), вызовов: "
-                    + reply.getToolCalls().size() + ", текст: " + textOf(reply));
+                    + reply.getToolCalls().size() + ", текст: " + textOf(reply) + ", замеры: " + timing);
             call.resolve(result);
         } catch (Throwable error) {
             Log.e(TAG, "ошибка модели", error);
@@ -643,6 +658,7 @@ public class VoicePlugin extends Plugin {
             JSObject data = stackData(error);
 
             data.put("config", modelConfigJson(backend));
+            data.put("timing", timing);
             call.reject("Ошибка модели: " + error, null, error instanceof Exception ? (Exception) error : null, data);
         }
     }
@@ -712,21 +728,41 @@ public class VoicePlugin extends Plugin {
     private static void loadEngine(Context context, String path) {
         closeEngine();
 
-        String cacheDir = context.getCacheDir().getAbsolutePath();
+        // Замеры движка (BenchmarkInfo): флаг читается при создании Engine. Вход и остановка
+        // декода с ним не меняются (параметры бенчмарка нулевые), см. docs/mechanic_voice.md.
+        ExperimentalFlags.INSTANCE.setEnableBenchmark(true);
+
+        File cache = context.getCacheDir();
+        String cacheDir = cache.getAbsolutePath();
+        String modelName = path.substring(path.lastIndexOf('/') + 1);
+        // Кэш LiteRT-LM (веса и ядра GPU, XNNPACK) лежит файлами с именем модели в начале:
+        // есть он — загрузка повторная, нет — первая, с компиляцией.
+        File[] cached = cache.listFiles((parent, name) -> name.startsWith(modelName));
+        long cachedBytes = 0;
+
+        for (File file : cached == null ? new File[0] : cached) {
+            cachedBytes += file.length();
+        }
+
         long startedAt = SystemClock.elapsedRealtime();
         String gpuError = null;
         String cpuError = null;
         Engine loaded = null;
         String backend = null;
+        JSONObject stages = new JSONObject();
 
         long warmUpMs = 0;
 
+        long gpuStart = SystemClock.elapsedRealtime();
+
         try {
             loaded = initialize(new EngineConfig(path, new Backend.GPU(), null, new Backend.CPU(), MAX_NUM_TOKENS, null, cacheDir));
-            warmUpMs = warmUp(loaded);
+            stages.put("gpuInitializeMs", SystemClock.elapsedRealtime() - gpuStart);
+            warmUpMs = warmUp(loaded, stages, "gpu");
             backend = "GPU";
         } catch (Throwable error) {
             gpuError = Log.getStackTraceString(error);
+            putQuietly(stages, "gpuFailedAfterMs", SystemClock.elapsedRealtime() - gpuStart);
             Log.w(TAG, "GPU не подошёл, пробую CPU", error);
             closeQuietly(loaded);
             loaded = null;
@@ -734,8 +770,11 @@ public class VoicePlugin extends Plugin {
 
         if (loaded == null) {
             try {
+                long cpuStart = SystemClock.elapsedRealtime();
+
                 loaded = initialize(new EngineConfig(path, new Backend.CPU(), null, new Backend.CPU(), MAX_NUM_TOKENS, null, cacheDir));
-                warmUpMs = warmUp(loaded);
+                stages.put("cpuInitializeMs", SystemClock.elapsedRealtime() - cpuStart);
+                warmUpMs = warmUp(loaded, stages, "cpu");
                 backend = "CPU";
             } catch (Throwable error) {
                 cpuError = Log.getStackTraceString(error);
@@ -773,12 +812,15 @@ public class VoicePlugin extends Plugin {
 
             entry.put("kind", "engine");
             entry.put("at", timestamp());
-            entry.put("model", path.substring(path.lastIndexOf('/') + 1));
+            entry.put("model", modelName);
+            entry.put("cacheFilesBefore", cached == null ? 0 : cached.length);
+            entry.put("cacheBytesBefore", cachedBytes);
             entry.put("backend", backend == null ? JSONObject.NULL : backend);
             entry.put("audioBackend", "CPU");
             entry.put("maxNumTokens", MAX_NUM_TOKENS);
             entry.put("loadMs", loadMs);
             entry.put("warmUpMs", warmUpMs);
+            entry.put("stages", stages);
             entry.put("gpuError", gpuError == null ? JSONObject.NULL : gpuError);
             entry.put("cpuError", cpuError == null ? JSONObject.NULL : cpuError);
             appendLog(context, entry.toString(), false);
@@ -787,8 +829,11 @@ public class VoicePlugin extends Plugin {
         }
     }
 
-    /** Короткий текстовый запрос без инструментов; возвращает его время, мс. Ошибка — исключением. */
-    private static long warmUp(Engine loaded) {
+    /**
+     * Короткий текстовый запрос без инструментов; возвращает его время, мс, и пишет в {@code stages}
+     * его время и замеры разговора прогрева. Ошибка — исключением.
+     */
+    private static long warmUp(Engine loaded, JSONObject stages, String prefix) throws Exception {
         long startedAt = SystemClock.elapsedRealtime();
         ConversationConfig config = new ConversationConfig(
                 null,
@@ -805,9 +850,82 @@ public class VoicePlugin extends Plugin {
 
         try (Conversation conversation = loaded.createConversation(config)) {
             conversation.sendMessage("Привет");
+            stages.put(prefix + "WarmUp", benchmarkJson(conversation));
         }
 
-        return SystemClock.elapsedRealtime() - startedAt;
+        long warmUpMs = SystemClock.elapsedRealtime() - startedAt;
+
+        stages.put(prefix + "WarmUpMs", warmUpMs);
+
+        return warmUpMs;
+    }
+
+    /**
+     * Замеры разговора из BenchmarkInfo, в мс и токенах: последний ход prefill (токены, ток/с, время),
+     * последний ход декода (то же), метки (среди них {@code audio_executor} — аудиоэнкодер) и время
+     * до первого токена по определению библиотеки (первый ход prefill плюс средний токен декода).
+     * Время инициализации ({@code initTimeInSecond}) не берётся: JNI суммирует все фазы, и
+     * «Init Total» входит вместе со своими частями, плюс сессия и разговор — число завышено.
+     * Отказ замера не роняет нажатие: вместо чисел — текст ошибки.
+     */
+    private static JSObject benchmarkJson(Conversation conversation) {
+        JSObject json = new JSObject();
+
+        try {
+            BenchmarkInfo info = conversation.getBenchmarkInfo();
+            JSObject marks = new JSObject();
+
+            for (Map.Entry<String, Double> mark : info.getMarkDurationsInSecond().entrySet()) {
+                marks.put(mark.getKey(), Math.round(mark.getValue() * 1000));
+            }
+
+            json.put("timeToFirstTokenMs", Math.round(info.getTimeToFirstTokenInSecond() * 1000));
+            json.put("prefillTokens", info.getLastPrefillTokenCount());
+            json.put("prefillTokensPerSecond", ModelTiming.round1(info.getLastPrefillTokensPerSecond()));
+            json.put("prefillMs", ModelTiming.tokensMs(info.getLastPrefillTokenCount(), info.getLastPrefillTokensPerSecond()));
+            json.put("decodeTokens", info.getLastDecodeTokenCount());
+            json.put("decodeTokensPerSecond", ModelTiming.round1(info.getLastDecodeTokensPerSecond()));
+            json.put("decodeMs", ModelTiming.tokensMs(info.getLastDecodeTokenCount(), info.getLastDecodeTokensPerSecond()));
+            json.put("marksMs", marks);
+        } catch (Throwable error) {
+            json.put("error", String.valueOf(error));
+        }
+
+        return json;
+    }
+
+    /** Число в сведения о загрузке; ключ строковый и непустой — JSONException тут невозможен. */
+    private static void putQuietly(JSONObject target, String key, long value) {
+        try {
+            target.put(key, value);
+        } catch (org.json.JSONException error) {
+            Log.w(TAG, "не удалось записать " + key, error);
+        }
+    }
+
+    /** Сводка по замерам хода (арифметика — {@link ModelTiming}); нет замера хода — сводки нет. */
+    private static void summarizeTiming(JSObject timing, long conversationMs, long inferenceMs) {
+        JSONObject turn = timing.optJSONObject("turn");
+
+        if (turn == null || turn.has("error")) {
+            return;
+        }
+
+        JSONObject marks = turn.optJSONObject("marksMs");
+        ModelTiming summary = ModelTiming.of(
+                conversationMs,
+                inferenceMs,
+                marks == null ? 0 : marks.optLong("audio_executor", 0),
+                turn.optLong("prefillMs", 0),
+                turn.optLong("decodeMs", 0),
+                turn.optInt("decodeTokens", 0));
+
+        timing.put("audioEncodeMs", summary.audioEncodeMs);
+        timing.put("turnPrefillMs", summary.turnPrefillMs);
+        timing.put("decodeMs", summary.decodeMs);
+        timing.put("firstTokenMs", summary.firstTokenMs);
+        timing.put("otherMs", summary.otherMs);
+        timing.put("modelTotalMs", summary.modelTotalMs);
     }
 
     /**

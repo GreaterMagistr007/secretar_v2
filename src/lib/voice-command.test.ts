@@ -3,6 +3,7 @@ import {
   ADD_TASK_TOOL,
   buildSystemPrompt,
   checkDateWithChrono,
+  dayReference,
   formatTimestamp,
   interpretReply,
   parseAddTaskArgs,
@@ -11,6 +12,7 @@ import {
   taskText,
 } from './voice-command';
 import type { ModelMessage } from './voice-command';
+import { toIsoDate as toIso } from './date';
 
 /** Суббота, 21 ноября 2026, 19:30 по местному времени стенда. */
 const SATURDAY = new Date(2026, 10, 21, 19, 30, 5, 7);
@@ -61,6 +63,111 @@ describe('buildSystemPrompt', () => {
 
   it('полночь пишется как 00:00', () => {
     expect(buildSystemPrompt(new Date(2026, 0, 1, 0, 0), 'UTC')).toContain('четверг, 1 января 2026, 00:00');
+  });
+});
+
+describe('ночное правило', () => {
+  /** Воскресенье, 22 ноября 2026, 01:58 — пример владельца. */
+  const night = new Date(2026, 10, 22, 1, 58);
+
+  it('dayReference: 03:59 — прошлые сутки, 04:00 — те же', () => {
+    expect(toIso(dayReference(new Date(2026, 10, 22, 3, 59, 59, 999)))).toBe('2026-11-21');
+    expect(toIso(dayReference(new Date(2026, 10, 22, 4, 0)))).toBe('2026-11-22');
+    expect(toIso(dayReference(new Date(2026, 10, 22, 0, 0)))).toBe('2026-11-21');
+  });
+
+  it('dayReference днём возвращает тот же объект, ночью — то же время суток раньше', () => {
+    const day = new Date(2026, 10, 22, 12, 0);
+    const shifted = dayReference(night);
+
+    expect(dayReference(day)).toBe(day);
+    expect([shifted.getHours(), shifted.getMinutes()]).toEqual([1, 58]);
+  });
+
+  it('промпт ночью: явная оговорка, «сегодня» — вчера, день не назван — календарный', () => {
+    const prompt = buildSystemPrompt(night, 'Asia/Irkutsk');
+
+    expect(prompt).toContain(
+      'Сейчас: воскресенье, 22 ноября 2026, 01:58 (часовой пояс Asia/Irkutsk). Сейчас ночь: до 04:00 «сегодня» — это ещё вчерашний день, суббота, 21 ноября 2026 (2026-11-21); «завтра», «послезавтра» и дни недели считай от него.',
+    );
+    expect(prompt).toContain('  - день не назван — 2026-11-22 (ночь: ближайший календарный день);');
+    expect(prompt).toContain('«сегодня» — 2026-11-21, «завтра» — 2026-11-22, «послезавтра» — 2026-11-23;');
+    expect(prompt).toContain('2026-11-21 — суббота (сегодня)\n2026-11-22 — воскресенье (завтра)\n2026-11-23 — понедельник (послезавтра)');
+    expect(prompt).toContain('2026-12-05 — суббота\n');
+    expect(prompt).not.toContain('2026-12-06');
+  });
+
+  it('03:59 — ночь, 04:00 — уже день', () => {
+    expect(buildSystemPrompt(new Date(2026, 10, 22, 3, 59), 'UTC')).toContain('Сейчас ночь: до 04:00');
+    const morning = buildSystemPrompt(new Date(2026, 10, 22, 4, 0), 'UTC');
+
+    expect(morning).not.toContain('Сейчас ночь');
+    expect(morning).toContain('04:00 (часовой пояс UTC). Сегодня — 2026-11-22.');
+    expect(morning).toContain('2026-11-22 — воскресенье (сегодня)');
+  });
+
+  it('полночь: «сегодня» — прошлый день', () => {
+    const prompt = buildSystemPrompt(new Date(2026, 10, 22, 0, 0), 'UTC');
+
+    expect(prompt).toContain('00:00 (часовой пояс UTC). Сейчас ночь');
+    expect(prompt).toContain('2026-11-21 — суббота (сегодня)');
+  });
+
+  it('переход месяца и года: 1 января 01:00 — «сегодня» 31 декабря прошлого года', () => {
+    const prompt = buildSystemPrompt(new Date(2027, 0, 1, 1, 0), 'UTC');
+
+    expect(prompt).toContain('Сейчас: пятница, 1 января 2027, 01:00');
+    expect(prompt).toContain('вчерашний день, четверг, 31 декабря 2026 (2026-12-31)');
+    expect(prompt).toContain('  - день не назван — 2027-01-01 (ночь: ближайший календарный день);');
+    expect(prompt).toContain('2026-12-31 — четверг (сегодня)\n2027-01-01 — пятница (завтра)');
+  });
+
+  it('переход месяца: 1 декабря 02:00 — «сегодня» 30 ноября', () => {
+    expect(buildSystemPrompt(new Date(2026, 11, 1, 2, 0), 'UTC')).toContain('2026-11-30 — понедельник (сегодня)');
+  });
+
+  it('chrono ночью: «завтра» — календарный сегодняшний день', () => {
+    expect(checkDateWithChrono('завтра маникюр', '2026-11-22', dayReference(night))).toMatchObject({
+      date: '2026-11-22',
+      agrees: true,
+    });
+  });
+
+  it('дни недели ночью — от вчерашнего дня: в воскресенье ночью «в воскресенье» — сегодняшнее календарное', () => {
+    const reference = dayReference(night);
+
+    expect(checkDateWithChrono('в воскресенье стрижка', '2026-11-22', reference)).toMatchObject({ date: '2026-11-22' });
+    // «В субботу» от субботы — через 7 дней.
+    expect(checkDateWithChrono('в субботу стрижка', '2026-11-28', reference)).toMatchObject({
+      date: '2026-11-28',
+      agrees: true,
+    });
+    expect(checkDateWithChrono('сегодня стрижка', '2026-11-21', reference)).toMatchObject({ date: '2026-11-21' });
+  });
+
+  it('interpretReply сверяет ночью от сдвинутого момента', () => {
+    const result = interpretReply(
+      reply([{ name: 'add_task', arguments: { heard: 'завтра маникюр', date: '2026-11-22', text: 'Маникюр' } }]),
+      night,
+    );
+
+    expect(result).toMatchObject({ ok: true, chrono: { date: '2026-11-22', agrees: true }, toast: 'Добавлено: Маникюр — вс, 22 ноября' });
+  });
+
+  it('новогодняя ночь: год в сообщении — по календарной дате, а не по сдвинутой', () => {
+    const result = interpretReply(
+      reply([{ name: 'add_task', arguments: { heard: '1 января ёлка', date: '2027-01-01', text: 'Ёлка' } }]),
+      new Date(2027, 0, 1, 1, 0),
+    );
+
+    expect(result).toMatchObject({ ok: true, chrono: { date: '2027-01-01', agrees: true }, toast: 'Добавлено: Ёлка — пт, 1 января' });
+  });
+
+  it('ночью «22 ноября» и «21 ноября» — как названо', () => {
+    const reference = dayReference(night);
+
+    expect(checkDateWithChrono('22 ноября маникюр', '2026-11-22', reference)).toMatchObject({ date: '2026-11-22', agrees: true });
+    expect(checkDateWithChrono('21 ноября маникюр', '2026-11-21', reference)).toMatchObject({ date: '2026-11-21', agrees: true });
   });
 });
 
