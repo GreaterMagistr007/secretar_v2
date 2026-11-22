@@ -70,3 +70,4 @@ type: project
 - [progress_voice_model_download.md](progress_voice_model_download.md), [progress_voice_model_download_fix.md](progress_voice_model_download_fix.md), [findings_skeptic_model_download.md](findings_skeptic_model_download.md) — докачка модели (Р-36): журналы реализации и исправлений, ревью Д-1…Д-12.
 - [progress_voice_button.md](progress_voice_button.md) — голосовая кнопка и журнал нажатий (Р-37): журнал реализации, факты API LiteRT-LM 0.19.1, проверка на эмуляторе.
 - [findings_skeptic_voice_button.md](findings_skeptic_voice_button.md) — ревью голосовой кнопки, находки Г-1…Г-10 (тишина, гонка нажатий, полнота журнала); Г-1…Г-8 исправлены, Г-9 и Г-10 оставлены.
+- [findings_voice_phone_log_1.md](findings_voice_phone_log_1.md) — первый журнал голосовой кнопки с телефона владельца: 2 из 2 фраз верно, инференс 12–14 с на GPU, загрузка 51 с.
